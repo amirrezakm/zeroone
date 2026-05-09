@@ -1,0 +1,12 @@
+[Unit]
+Description=Xray Service
+After=network.target openvpn@company.service openvpn@client-tun1.service
+Wants=openvpn@company.service openvpn@client-tun1.service
+
+[Service]
+ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

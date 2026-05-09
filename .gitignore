@@ -1,0 +1,27 @@
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.swp
+
+# Runtime/state files
+rootfs/usr/local/etc/xray/user-usage.json
+rootfs/usr/local/etc/xray/socks-usage.json
+rootfs/usr/local/etc/xray/user-bans.json
+rootfs/usr/local/etc/xray/bandwidth-limits.json
+
+# Live secrets/configs. Keep local copies, do not commit by default.
+rootfs/usr/local/etc/xray/config*.json
+!config/examples/config.example.json
+rootfs/etc/openvpn/auth.txt
+rootfs/etc/openvpn/key-pass.txt
+rootfs/etc/openvpn/*.conf
+rootfs/etc/openvpn/*.conf.bak*
+rootfs/etc/nginx/.monitor.htpasswd
+rootfs/var/www/sub/amirreza
+rootfs/var/www/sub/parastoo
+
+# Old backups from server
+*.bak
+*.bak-*
+*.tmp-*
