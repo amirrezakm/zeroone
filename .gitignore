@@ -44,3 +44,6 @@ config/stack.local.json
 # UI build/runtime artifacts
 web/app/node_modules/
 web/app/dist/
+
+# Build output
+dist/
