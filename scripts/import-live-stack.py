@@ -48,10 +48,16 @@ for inbound in xray_config.get('inbounds', []):
         })
 
 rules = xray_config.get('routing', {}).get('rules', [])
-def domains_for(tag, idx=0):
-    return [r.get('domain', []) for r in rules if r.get('outboundTag') == tag and r.get('domain')][idx]
-def ips_for(tag, idx=0):
-    return [r.get('ip', []) for r in rules if r.get('outboundTag') == tag and r.get('ip')][idx]
+def domain_rules_for(tag):
+    return [r.get('domain', []) for r in rules if r.get('outboundTag') == tag and r.get('domain')]
+def ip_rules_for(tag):
+    return [r.get('ip', []) for r in rules if r.get('outboundTag') == tag and r.get('ip')]
+
+direct_domain_rules = domain_rules_for('direct')
+direct_ip_rules = ip_rules_for('direct')
+block_domain_rules = domain_rules_for('block')
+block_ip_rules = ip_rules_for('block')
+proxy_domain_rules = domain_rules_for('proxy')
 
 stack = {
     'server': {
@@ -66,16 +72,18 @@ stack = {
         'dns_servers': xray_config.get('dns', {}).get('servers', []),
         'dns_hosts': xray_config.get('dns', {}).get('hosts', {}),
         'api_port': 10085,
-        'inbounds': {'vless_ws_port': 443, 'vless_xhttp_port': 3002, 'public_socks': socks},
+        'inbounds': {'vless_ws_port': 443, 'vless_xhttp_port': 3002, 'local_socks_port': 10808, 'public_socks': socks},
         'users': users,
         'outbounds': {'proxy': outbound_model('proxy'), 'fallback': outbound_model('priority-proxy')},
         'routing': {
             'block_udp_443': any(r.get('network') == 'udp' and r.get('port') == '443' and r.get('outboundTag') == 'block' for r in rules),
-            'direct_domains': domains_for('direct', 0),
-            'direct_ips': ips_for('direct', 0),
-            'block_domains': domains_for('block', 0),
-            'block_ips': ips_for('block', 0),
-            'ai_domains': domains_for('proxy', -1),
+            'direct_domains': direct_domain_rules[0] if direct_domain_rules else [],
+            'direct_ips': direct_ip_rules[0] if direct_ip_rules else [],
+            'block_domains': block_domain_rules[0] if len(block_domain_rules) > 0 else [],
+            'manual_block_domains': block_domain_rules[1] if len(block_domain_rules) > 1 else [],
+            'block_ips': block_ip_rules[0] if block_ip_rules else [],
+            'ai_update_domains': proxy_domain_rules[0] if len(proxy_domain_rules) > 1 else [],
+            'ai_domains': proxy_domain_rules[-1] if proxy_domain_rules else [],
         },
     },
     'tunnels': [

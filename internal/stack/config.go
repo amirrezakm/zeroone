@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 type Config struct {
@@ -35,6 +36,7 @@ type XrayConfig struct {
 type InboundConfig struct {
 	VLESSWSPort    int            `json:"vless_ws_port"`
 	VLESSXHTTPPort int            `json:"vless_xhttp_port"`
+	LocalSOCKSPort int            `json:"local_socks_port"`
 	PublicSOCKS    []SOCKSInbound `json:"public_socks"`
 }
 
@@ -71,12 +73,14 @@ type Outbound struct {
 }
 
 type RoutingConfig struct {
-	BlockUDP443   bool     `json:"block_udp_443"`
-	DirectDomains []string `json:"direct_domains"`
-	DirectIPs     []string `json:"direct_ips"`
-	BlockDomains  []string `json:"block_domains"`
-	BlockIPs      []string `json:"block_ips"`
-	AIDomains     []string `json:"ai_domains"`
+	BlockUDP443        bool     `json:"block_udp_443"`
+	DirectDomains      []string `json:"direct_domains"`
+	DirectIPs          []string `json:"direct_ips"`
+	BlockDomains       []string `json:"block_domains"`
+	ManualBlockDomains []string `json:"manual_block_domains"`
+	BlockIPs           []string `json:"block_ips"`
+	AIUpdateDomains    []string `json:"ai_update_domains"`
+	AIDomains          []string `json:"ai_domains"`
 }
 
 type TunnelConfig struct {
@@ -110,6 +114,24 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+func Save(path string, cfg Config) error {
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, append(b, '\n'), 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 func (c Config) Validate() error {

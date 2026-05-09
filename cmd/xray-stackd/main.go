@@ -34,7 +34,7 @@ func main() {
 		return
 	}
 
-	h := api.NewServer(*cfg)
+	h := api.NewServer(*cfg, *configPath)
 	srv := &http.Server{Addr: cfg.Server.AdminListen, Handler: h, ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		slog.Info("xray-stackd listening", "addr", cfg.Server.AdminListen)

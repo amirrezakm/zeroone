@@ -14,18 +14,21 @@ func Generate(cfg stack.Config) Object {
 	}
 	inbounds := []Object{
 		vlessWSInbound(cfg.Xray.Inbounds.VLESSWSPort, "0.0.0.0", clients, "/vless"),
-		vlessXHTTPInbound(cfg.Xray.Inbounds.VLESSXHTTPPort, "127.0.0.1", clients, "/xhttp"),
-		apiInbound(cfg.Xray.APIPort),
 	}
 	for _, socks := range cfg.Xray.Inbounds.PublicSOCKS {
 		inbounds = append(inbounds, socksInbound(socks))
 	}
+	inbounds = append(inbounds,
+		localSOCKSInbound(cfg.Xray.Inbounds.LocalSOCKSPort),
+		vlessXHTTPInbound(cfg.Xray.Inbounds.VLESSXHTTPPort, "127.0.0.1", clients, "/xhttp"),
+		apiInbound(cfg.Xray.APIPort),
+	)
 	return Object{
 		"log":       Object{"loglevel": cfg.Xray.LogLevel},
 		"dns":       Object{"hosts": cfg.Xray.DNSHosts, "queryStrategy": "UseIPv4", "servers": cfg.Xray.DNSServers},
 		"api":       Object{"services": []string{"StatsService"}, "tag": "api"},
 		"stats":     Object{},
-		"policy":    Object{"levels": Object{"0": Object{"statsUserUplink": true, "statsUserDownlink": true}}, "system": Object{"statsInboundUplink": true, "statsInboundDownlink": true, "statsOutboundUplink": true, "statsOutboundDownlink": true}},
+		"policy":    Object{"levels": Object{"0": Object{"statsUserUplink": true, "statsUserDownlink": true}}},
 		"inbounds":  inbounds,
 		"outbounds": []Object{vlessOutbound(cfg.Xray.Outbounds.Proxy), vlessOutbound(cfg.Xray.Outbounds.Fallback), directOutbound(), blockOutbound()},
 		"routing":   Object{"domainStrategy": "IPIfNonMatch", "rules": routingRules(cfg)},
@@ -46,6 +49,13 @@ func vlessXHTTPInbound(port int, listen string, clients []Object, path string) O
 
 func socksInbound(s stack.SOCKSInbound) Object {
 	return Object{"tag": "managed-socks-" + s.Name, "port": s.Port, "listen": s.Listen, "protocol": "socks", "settings": Object{"auth": "password", "accounts": []Object{{"user": s.Username, "pass": s.Password}}, "udp": true}, "sniffing": sniffing()}
+}
+
+func localSOCKSInbound(port int) Object {
+	if port == 0 {
+		port = 10808
+	}
+	return Object{"port": port, "listen": "127.0.0.1", "protocol": "socks", "settings": Object{"auth": "noauth", "udp": true}, "sniffing": sniffing()}
 }
 
 func apiInbound(port int) Object {
@@ -74,7 +84,7 @@ func vlessOutbound(o stack.Outbound) Object {
 }
 
 func directOutbound() Object {
-	return Object{"tag": "direct", "protocol": "freedom", "streamSettings": Object{"sockopt": Object{"interface": "eth0"}}}
+	return Object{"tag": "direct", "protocol": "freedom", "settings": Object{"domainStrategy": "UseIPv4"}, "streamSettings": Object{"sockopt": Object{"interface": "eth0"}}}
 }
 func blockOutbound() Object { return Object{"tag": "block", "protocol": "blackhole"} }
 
@@ -94,6 +104,12 @@ func routingRules(cfg stack.Config) []Object {
 	}
 	if len(cfg.Xray.Routing.BlockIPs) > 0 {
 		r = append(r, Object{"type": "field", "ip": cfg.Xray.Routing.BlockIPs, "outboundTag": "block"})
+	}
+	if len(cfg.Xray.Routing.ManualBlockDomains) > 0 {
+		r = append(r, Object{"type": "field", "domain": cfg.Xray.Routing.ManualBlockDomains, "outboundTag": "block"})
+	}
+	if len(cfg.Xray.Routing.AIUpdateDomains) > 0 {
+		r = append(r, Object{"type": "field", "domain": cfg.Xray.Routing.AIUpdateDomains, "outboundTag": cfg.Xray.Outbounds.Proxy.Tag})
 	}
 	if len(cfg.Xray.Routing.AIDomains) > 0 {
 		r = append(r, Object{"type": "field", "domain": cfg.Xray.Routing.AIDomains, "outboundTag": cfg.Xray.Outbounds.Proxy.Tag})
