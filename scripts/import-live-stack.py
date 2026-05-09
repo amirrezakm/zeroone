@@ -76,7 +76,7 @@ proxy_domain_rules = domain_rules_for('proxy')
 stack = {
     'server': {
         'public_ip': '185.128.139.68',
-        'admin_listen': '127.0.0.1:8090',
+        'admin_listen': '127.0.0.1:8091',
         'xray_config_path': '/usr/local/etc/xray/config.json',
         'xray_binary': '/usr/local/bin/xray',
         'backup_dir': '/root/xray-audit-backups',

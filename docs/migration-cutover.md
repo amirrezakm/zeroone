@@ -10,10 +10,13 @@ Production cutover was completed on ZeroOne (`185.128.139.68`) on `2026-05-10 04
 - The old shell AI failover service is masked; `xray-stackd -manage-failover` owns failover decisions.
 - The old shell VPN monitor is masked; `xray-stackd -manage-vpn` owns tunnel service/IPv4 recovery.
 - Legacy services are masked with `/etc/systemd/system/*.service -> /dev/null`: `vpn-monitor`, `xray-stack-monitor`, `xray-ai-route-failover`, `xray2`, `xray-icmp`, and `xray-bandwidth-limits`.
+- The legacy Python subscription service `sub.service` is also masked and its nginx site is disabled.
+- Legacy executable scripts were moved out of `/usr/local/bin` and archived under `/root/xray-audit-backups/legacy-files-removed-20260510-044238`.
 - `allow_apply` is enabled in `/etc/default/xray-stackd`, so the Go panel owns production Xray mutations.
 - The apply pipeline was validated with a temporary direct rule add/apply/delete/apply cycle after cutover.
 - Failover confirmation/cooldown state is persisted in `/var/lib/xray-stack/failover-state.json`.
 - Current rollback metadata is recorded on the server at `/root/xray-audit-backups/go-cutover-current.txt`.
+- The failover state path is explicit in stack config: `/var/lib/xray-stack/failover-state.json`.
 
 ## Preflight
 

@@ -1,6 +1,6 @@
 # Xray Stack Deployment
 
-This package is designed for a staged migration. Start locked, verify read-only status, then enable write actions only when you are ready to let the Go daemon manage Xray.
+This package now represents the production Go control plane. Start locked for first installs, then enable write actions when the Go daemon should manage Xray.
 
 ## Install Files
 
@@ -15,11 +15,11 @@ install -m 0644 systemd/xray-stackd.service /etc/systemd/system/xray-stackd.serv
 
 Use the imported live stack config as `config/stack.json`; do not deploy `stack.example.json` as-is.
 
-If the legacy Python panel is still bound to `127.0.0.1:8090`, run the Go daemon side-by-side on `127.0.0.1:8091` first:
+The production daemon listens on `127.0.0.1:8091`:
 
 ```bash
-jq '.server.admin_listen="127.0.0.1:8091"' config/stack.json > /tmp/stack-go-sidecar.json
-install -m 0600 /tmp/stack-go-sidecar.json /usr/local/etc/xray-stack/stack.json
+jq '.server.admin_listen="127.0.0.1:8091"' config/stack.json > /tmp/stack-go.json
+install -m 0600 /tmp/stack-go.json /usr/local/etc/xray-stack/stack.json
 ```
 
 ## Locked First Start
@@ -31,19 +31,20 @@ EOF
 systemctl daemon-reload
 systemctl enable --now xray-stackd.service
 systemctl status xray-stackd.service --no-pager
-curl -fsS http://127.0.0.1:8090/api/config/summary | jq .
-curl -fsS http://127.0.0.1:8090/api/xray/apply-plan | jq .
+curl -fsS http://127.0.0.1:8091/api/config/summary | jq .
+curl -fsS http://127.0.0.1:8091/api/xray/apply-plan | jq .
 ```
 
 In locked mode, the panel can inspect config, usage, tunnels, quota plans, and bandwidth plans. It cannot modify live Xray or nft/tc state.
 
 ## Side-by-Side Nginx Exposure
 
-Keep the legacy panel on `/monitor/` until the Go panel has been verified. The staged route used on ZeroOne is:
+The ZeroOne production route is:
 
 - `/monitor-go/` -> `http://127.0.0.1:8091/`
 - `/api/` -> `http://127.0.0.1:8091/api/`
 - `/assets/` -> `http://127.0.0.1:8091/assets/`
+- `/monitor/` -> `http://127.0.0.1:8091/`
 
 All three locations must keep the same Basic Auth file as `/monitor/`. Run `nginx -t` before reload.
 
@@ -53,7 +54,7 @@ Only after the generated config validates and the UI looks correct:
 
 ```bash
 cat >/etc/default/xray-stackd <<'EOF'
-XRAY_STACKD_FLAGS=-allow-apply
+XRAY_STACKD_FLAGS=-allow-apply -manage-failover -manage-vpn
 EOF
 systemctl restart xray-stackd.service
 ```
@@ -84,4 +85,4 @@ Xray config backups created by the Go daemon are stored under `/root/xray-audit-
 - `scripts/check.sh` passes locally.
 - `scripts/build.sh` produces `dist/xray-stackd` and `web/app/dist`.
 - Existing ports `443`, `8088`, `1080`, and SSH/VNC access remain unchanged.
-- First production start uses locked mode with no `-allow-apply`.
+- ZeroOne production currently runs with `-allow-apply -manage-failover -manage-vpn`.
