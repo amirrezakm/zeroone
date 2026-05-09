@@ -158,16 +158,12 @@ func (s *Server) generatedXray(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) xrayApplyPlan(w http.ResponseWriter, r *http.Request) {
 	m := xray.Manager{}
-	rendered, err := m.Render(s.cfg)
+	plan, _, err := m.Plan(r.Context(), s.cfg)
 	if err != nil {
-		s.fail(w, 500, err)
-		return
-	}
-	if err := m.Validate(r.Context(), s.cfg, rendered); err != nil {
 		s.fail(w, 400, err)
 		return
 	}
-	s.write(w, map[string]any{"ok": true, "valid": true, "config_path": s.cfg.Server.XrayConfigPath, "allow_apply": s.allowApply})
+	s.write(w, map[string]any{"ok": true, "valid": true, "config_path": s.cfg.Server.XrayConfigPath, "allow_apply": s.allowApply, "changed": plan.Changed, "backup_path": plan.BackupPath})
 }
 
 func (s *Server) xrayApply(w http.ResponseWriter, r *http.Request) {

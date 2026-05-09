@@ -17,7 +17,7 @@ type Summary = {
   failover: {enabled:boolean; probe_ip:string; probe_port:number; cooldown_seconds:number};
 };
 type Health = { ok: boolean; generated_at: string; tunnels: Array<{name:string; interface:string; up:boolean; healthy:boolean; ipv4?:string; probe?:string; latency_ms?:number; error?:string}> };
-type ApplyPlan = { ok: boolean; valid: boolean; config_path: string; allow_apply: boolean; error?: string };
+type ApplyPlan = { ok: boolean; valid: boolean; changed: boolean; config_path: string; allow_apply: boolean; error?: string };
 type Usage = { updated_at: number; users: Array<{email:string; uplink:number; downlink:number; total:number}> };
 type QuotaPlan = { generated_at: number; actions: Array<{email:string; used_bytes:number; quota_bytes:number; action:string; reason:string}> };
 type BandwidthPlan = { device: string; limits: Array<{email:string; port:number; download_mbps:number; upload_mbps:number}>; needs_apply: boolean; apply_locked: boolean; tc_commands: string[] };
@@ -68,6 +68,7 @@ function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage,
         <article><span>SOCKS</span><strong>${summary.socks}</strong></article>
         <article><span>Failover</span><strong>${summary.failover.enabled ? 'On' : 'Off'}</strong></article>
         <article><span>Apply</span><strong>${summary.allow_apply ? 'Enabled' : 'Locked'}</strong></article>
+        <article><span>Live sync</span><strong>${plan.changed ? 'Pending' : 'Synced'}</strong></article>
         <article><span>Quota actions</span><strong>${quota.actions.length}</strong></article>
         <article><span>Speed limits</span><strong>${bandwidth.limits.length}</strong></article>
       </section>
@@ -99,9 +100,10 @@ function renderStatus(summary: Summary, health: Health, plan: ApplyPlan, usage: 
         <div class="tunnel-list">${health.tunnels.map(t => `<article class="tunnel"><div><h3>${esc(t.name)}</h3><p>${esc(t.interface)}${t.ipv4 ? ` · ${esc(t.ipv4)}` : ''}${t.probe ? ` · ${esc(t.probe)}` : ''}</p></div><div class="tunnel-state">${badge(t.up, t.up ? 'up' : 'down')}${badge(t.healthy, t.healthy ? `${t.latency_ms ?? 0}ms` : 'unhealthy')}</div>${t.error ? `<p class="error">${esc(t.error)}</p>` : ''}</article>`).join('')}</div>
       </section>
       <section class="panel">
-        <div class="panel-head"><h2>Xray apply</h2>${badge(Boolean(plan.valid), plan.valid ? 'valid' : 'invalid')}</div>
+        <div class="panel-head"><h2>Xray apply</h2>${badge(Boolean(plan.valid) && !plan.changed, plan.changed ? 'pending changes' : (plan.valid ? 'synced' : 'invalid'))}</div>
         <p class="muted">${esc(plan.config_path || '-')}</p>
         <p class="muted">${plan.allow_apply ? 'Live apply is enabled for this daemon.' : 'Live apply is locked. Start daemon with -allow-apply to enable writes.'}</p>
+        ${plan.changed ? '<p class="warning">Stack config differs from the live Xray config.</p>' : ''}
         ${plan.error ? `<p class="error">${esc(plan.error)}</p>` : ''}
       </section>
     </section>
@@ -321,7 +323,7 @@ async function load() {
     const [summary, health, plan, usage, quota, bandwidth, system, failover] = await Promise.all([
       fetchJSON<Summary>('/api/config/summary'),
       fetchJSON<Health>('/api/health'),
-      fetchJSON<ApplyPlan>('/api/xray/apply-plan').catch(error => ({ok:false, valid:false, config_path:'', allow_apply:false, error:String(error)})),
+      fetchJSON<ApplyPlan>('/api/xray/apply-plan').catch(error => ({ok:false, valid:false, changed:false, config_path:'', allow_apply:false, error:String(error)})),
       fetchJSON<Usage>('/api/usage').catch(() => ({updated_at:0, users:[]})),
       fetchJSON<QuotaPlan>('/api/quota/plan').catch(() => ({generated_at:0, actions:[]})),
       fetchJSON<BandwidthPlan>('/api/bandwidth/plan').catch(() => ({device:'eth0', limits:[], needs_apply:false, apply_locked:true, tc_commands:[]})),

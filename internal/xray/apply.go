@@ -48,17 +48,26 @@ func (m Manager) Validate(ctx context.Context, cfg stack.Config, rendered []byte
 	return nil
 }
 
-func (m Manager) Apply(ctx context.Context, cfg stack.Config) (ApplyPlan, error) {
+func (m Manager) Plan(ctx context.Context, cfg stack.Config) (ApplyPlan, []byte, error) {
 	rendered, err := m.Render(cfg)
 	if err != nil {
-		return ApplyPlan{}, err
+		return ApplyPlan{}, nil, err
 	}
 	if err := m.Validate(ctx, cfg, rendered); err != nil {
-		return ApplyPlan{}, err
+		return ApplyPlan{}, nil, err
 	}
 	plan := ApplyPlan{ConfigPath: cfg.Server.XrayConfigPath}
 	current, _ := os.ReadFile(cfg.Server.XrayConfigPath)
-	if string(current) == string(rendered)+"\n" || string(current) == string(rendered) {
+	plan.Changed = string(current) != string(rendered)+"\n" && string(current) != string(rendered)
+	return plan, rendered, nil
+}
+
+func (m Manager) Apply(ctx context.Context, cfg stack.Config) (ApplyPlan, error) {
+	plan, rendered, err := m.Plan(ctx, cfg)
+	if err != nil {
+		return ApplyPlan{}, err
+	}
+	if !plan.Changed {
 		return plan, nil
 	}
 	backupDir := cfg.Server.BackupDir
@@ -70,6 +79,7 @@ func (m Manager) Apply(ctx context.Context, cfg stack.Config) (ApplyPlan, error)
 	if err := os.MkdirAll(filepath.Dir(backupPath), 0o755); err != nil {
 		return plan, err
 	}
+	current, _ := os.ReadFile(cfg.Server.XrayConfigPath)
 	if len(current) > 0 {
 		if err := os.WriteFile(backupPath, current, 0o600); err != nil {
 			return plan, err
@@ -83,7 +93,6 @@ func (m Manager) Apply(ctx context.Context, cfg stack.Config) (ApplyPlan, error)
 		return plan, err
 	}
 	plan.BackupPath = backupPath
-	plan.Changed = true
 	runner := m.Runner
 	if runner == nil {
 		runner = system.ExecRunner{Timeout: 20 * time.Second}

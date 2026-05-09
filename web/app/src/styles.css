@@ -37,6 +37,7 @@ button.danger { color: var(--bad); }
 .badge.ok { color: var(--ok); }
 .badge.bad { color: var(--bad); }
 .error { grid-column: 1 / -1; color: var(--bad); font-size: 12px; }
+.warning { color: #b54708; font-size: 13px; font-weight: 650; }
 .loading, .error-page { padding: 24px; }
 .muted { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
 .usage-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
