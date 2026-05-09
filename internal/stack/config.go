@@ -57,6 +57,7 @@ type User struct {
 	Email         string `json:"email"`
 	UUID          string `json:"uuid"`
 	Enabled       bool   `json:"enabled"`
+	BannedUntil   int64  `json:"banned_until,omitempty"`
 	QuotaBytes    int64  `json:"quota_bytes,omitempty"`
 	DownloadMbps  int    `json:"download_mbps,omitempty"`
 	UploadMbps    int    `json:"upload_mbps,omitempty"`

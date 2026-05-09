@@ -13,7 +13,7 @@ type Link struct {
 }
 
 func VLESS(cfg stack.Config, user stack.User) []Link {
-	if !user.Enabled {
+	if !user.Enabled && user.BannedUntil == 0 {
 		return nil
 	}
 	host := cfg.Server.PublicIP

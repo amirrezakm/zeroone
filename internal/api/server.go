@@ -47,6 +47,8 @@ func NewServer(cfg stack.Config, configPath string, allowApply bool) http.Handle
 	mux.HandleFunc("POST /api/users", s.addUser)
 	mux.HandleFunc("PUT /api/users", s.updateUser)
 	mux.HandleFunc("DELETE /api/users", s.deleteUser)
+	mux.HandleFunc("POST /api/users/ban", s.banUser)
+	mux.HandleFunc("POST /api/users/unban", s.unbanUser)
 	mux.HandleFunc("POST /api/users/quota", s.setUserQuota)
 	mux.HandleFunc("POST /api/users/bandwidth", s.setUserBandwidth)
 	mux.HandleFunc("POST /api/direct-domains", s.addDirectDomain)
@@ -116,6 +118,7 @@ func (s *Server) summary(w http.ResponseWriter, r *http.Request) {
 			"email":          u.Email,
 			"uuid":           u.UUID,
 			"enabled":        u.Enabled,
+			"banned_until":   u.BannedUntil,
 			"quota_bytes":    u.QuotaBytes,
 			"download_mbps":  u.DownloadMbps,
 			"upload_mbps":    u.UploadMbps,
@@ -347,6 +350,47 @@ func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.write(w, map[string]any{"ok": true})
+}
+
+func (s *Server) banUser(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email   string `json:"email"`
+		Minutes int    `json:"minutes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.fail(w, 400, err)
+		return
+	}
+	if req.Minutes <= 0 {
+		req.Minutes = 60
+	}
+	until := time.Now().Add(time.Duration(req.Minutes) * time.Minute).Unix()
+	if err := s.cfg.BanUser(req.Email, until); err != nil {
+		s.fail(w, 400, err)
+		return
+	}
+	if !s.save(w) {
+		return
+	}
+	s.write(w, map[string]any{"ok": true, "email": req.Email, "banned_until": until})
+}
+
+func (s *Server) unbanUser(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.fail(w, 400, err)
+		return
+	}
+	if err := s.cfg.UnbanUser(req.Email); err != nil {
+		s.fail(w, 400, err)
+		return
+	}
+	if !s.save(w) {
+		return
+	}
+	s.write(w, map[string]any{"ok": true, "email": req.Email})
 }
 
 func (s *Server) setUserQuota(w http.ResponseWriter, r *http.Request) {

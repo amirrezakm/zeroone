@@ -36,6 +36,9 @@ func (c *Config) SetUserEnabled(email string, enabled bool) error {
 	for i := range c.Xray.Users {
 		if c.Xray.Users[i].Email == email {
 			c.Xray.Users[i].Enabled = enabled
+			if enabled {
+				c.Xray.Users[i].BannedUntil = 0
+			}
 			return c.Validate()
 		}
 	}
@@ -58,9 +61,37 @@ func (c *Config) UpdateUser(oldEmail, email, uuid string, enabled bool) error {
 		c.Xray.Users[i].Email = email
 		c.Xray.Users[i].UUID = uuid
 		c.Xray.Users[i].Enabled = enabled
+		if enabled {
+			c.Xray.Users[i].BannedUntil = 0
+		}
 		return c.Validate()
 	}
 	return fmt.Errorf("user %q not found", oldEmail)
+}
+
+func (c *Config) BanUser(email string, until int64) error {
+	if until <= 0 {
+		return fmt.Errorf("ban expiry is required")
+	}
+	for i := range c.Xray.Users {
+		if c.Xray.Users[i].Email == email {
+			c.Xray.Users[i].Enabled = false
+			c.Xray.Users[i].BannedUntil = until
+			return c.Validate()
+		}
+	}
+	return fmt.Errorf("user %q not found", email)
+}
+
+func (c *Config) UnbanUser(email string) error {
+	for i := range c.Xray.Users {
+		if c.Xray.Users[i].Email == email {
+			c.Xray.Users[i].Enabled = true
+			c.Xray.Users[i].BannedUntil = 0
+			return c.Validate()
+		}
+	}
+	return fmt.Errorf("user %q not found", email)
 }
 
 func (c *Config) SetUserQuota(email string, quotaBytes int64) error {

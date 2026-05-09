@@ -1,7 +1,7 @@
 import './styles.css';
 
 type Link = { name: string; url: string };
-type UserItem = { email:string; uuid:string; enabled:boolean; quota_bytes:number; download_mbps:number; upload_mbps:number; bandwidth_port:number; links:Link[] };
+type UserItem = { email:string; uuid:string; enabled:boolean; banned_until:number; quota_bytes:number; download_mbps:number; upload_mbps:number; bandwidth_port:number; links:Link[] };
 type SocksItem = { name:string; listen:string; port:number; username:string; password:string; links:Link[] };
 type Summary = {
   public_ip: string;
@@ -118,13 +118,14 @@ function renderUsers(summary: Summary) {
         <div class="panel-head"><h2>Users</h2><button id="add-user">Add user</button></div>
         <div class="user-list">${summary.user_items.map(u => `
           <article class="row-card">
-            <div><h3>${esc(u.email)}</h3><p>${u.uuid.slice(0, 8)}...${u.uuid.slice(-4)} · ${u.enabled ? 'enabled' : 'disabled'}</p><p class="muted">quota ${u.quota_bytes ? bytes(u.quota_bytes) : 'none'} · speed ${u.download_mbps || 'none'}/${u.upload_mbps || 'none'} Mbps${u.bandwidth_port ? ` · port ${u.bandwidth_port}` : ''}</p></div>
+            <div><h3>${esc(u.email)}</h3><p>${u.uuid.slice(0, 8)}...${u.uuid.slice(-4)} · ${userStatus(u)}</p><p class="muted">quota ${u.quota_bytes ? bytes(u.quota_bytes) : 'none'} · speed ${u.download_mbps || 'none'}/${u.upload_mbps || 'none'} Mbps${u.bandwidth_port ? ` · port ${u.bandwidth_port}` : ''}</p></div>
             <div class="row-actions">
               <button data-view-user="${esc(u.email)}">View config</button>
               <button data-activity-user="${esc(u.email)}">Activity</button>
               <button data-edit-user="${esc(u.email)}">Edit</button>
               <button data-quota-user="${esc(u.email)}">Quota</button>
               <button data-speed-user="${esc(u.email)}">Speed</button>
+              ${u.banned_until ? `<button data-unban-user="${esc(u.email)}">Unban</button>` : `<button data-ban-user="${esc(u.email)}">Temp ban</button>`}
               <button class="danger" data-delete-user="${esc(u.email)}">Delete</button>
             </div>
           </article>`).join('')}</div>
@@ -174,6 +175,8 @@ function bindEvents() {
   document.querySelectorAll<HTMLButtonElement>('[data-edit-user]').forEach(b => b.addEventListener('click', () => editUser(b.dataset.editUser!)));
   document.querySelectorAll<HTMLButtonElement>('[data-quota-user]').forEach(b => b.addEventListener('click', () => setQuota(b.dataset.quotaUser!)));
   document.querySelectorAll<HTMLButtonElement>('[data-speed-user]').forEach(b => b.addEventListener('click', () => setSpeed(b.dataset.speedUser!)));
+  document.querySelectorAll<HTMLButtonElement>('[data-ban-user]').forEach(b => b.addEventListener('click', () => banUser(b.dataset.banUser!)));
+  document.querySelectorAll<HTMLButtonElement>('[data-unban-user]').forEach(b => b.addEventListener('click', () => unbanUser(b.dataset.unbanUser!)));
   document.querySelectorAll<HTMLButtonElement>('[data-delete-user]').forEach(b => b.addEventListener('click', () => deleteUser(b.dataset.deleteUser!)));
   document.querySelectorAll<HTMLButtonElement>('[data-delete-direct]').forEach(b => b.addEventListener('click', () => deleteDirect(b.dataset.deleteDirect!)));
 }
@@ -187,6 +190,10 @@ function selectedUser(email: string) { return latestSummary?.user_items.find(u =
 function selectedSocks(user: string) { return latestSummary?.socks_items.find(s => s.username === user); }
 function message(text: string) { const el = document.querySelector('#action-msg'); if (el) el.textContent = text; }
 function output(text: string) { const el = document.querySelector<HTMLTextAreaElement>('#config-output'); if (el) el.value = text; }
+function userStatus(u: UserItem) {
+  if (u.banned_until) return `banned until ${new Date(u.banned_until * 1000).toLocaleString()}`;
+  return u.enabled ? 'enabled' : 'disabled';
+}
 
 async function addUser() {
   const email = prompt('Email/name for new VLESS user');
@@ -225,6 +232,16 @@ async function setSpeed(email: string) {
   if (up === null) return;
   await post('/api/users/bandwidth', {email, download_mbps: Number(down || 0), upload_mbps: Number(up || 0)});
   await load(); switchTab('users'); showUserConfig(email); message('Speed limit updated. Use limited config link after applying Xray and bandwidth rules.');
+}
+async function banUser(email: string) {
+  const minutes = Number(prompt(`Temporary ban duration for ${email} in minutes.`, '60') || 0);
+  if (!minutes) return;
+  await post('/api/users/ban', {email, minutes});
+  await load(); switchTab('users'); message('User banned in stack config. Apply Xray to make it live.');
+}
+async function unbanUser(email: string) {
+  await post('/api/users/unban', {email});
+  await load(); switchTab('users'); message('User unbanned in stack config. Apply Xray to make it live.');
 }
 function showUserConfig(email: string) { const u = selectedUser(email); if (u) output(linkText(u.links || [])); }
 function showSocksConfig(username: string) { const s = selectedSocks(username); if (s) output(linkText(s.links || [])); }
