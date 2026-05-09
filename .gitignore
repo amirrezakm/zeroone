@@ -25,3 +25,15 @@ rootfs/var/www/sub/parastoo
 *.bak
 *.bak-*
 *.tmp-*
+
+# Local-only binaries and live subscription secrets
+rootfs/usr/local/bin/xray
+rootfs/var/www/sub/sub.live.py
+
+# Full server config snapshots kept local-only until sanitized/reviewed
+rootfs/etc/default/
+rootfs/etc/fail2ban/
+rootfs/etc/ssh/
+rootfs/etc/ufw/
+rootfs/etc/sysctl.d/
+rootfs/etc/security/
