@@ -13,12 +13,13 @@ type Mode struct {
 }
 
 type Decision struct {
-	Current           Mode   `json:"current"`
-	Desired           Mode   `json:"desired"`
-	Effective         Mode   `json:"effective"`
-	Pending           bool   `json:"pending"`
-	ConfirmationCount int    `json:"confirmation_count"`
-	Reason            string `json:"reason"`
+	Current                  Mode   `json:"current"`
+	Desired                  Mode   `json:"desired"`
+	Effective                Mode   `json:"effective"`
+	Pending                  bool   `json:"pending"`
+	ConfirmationCount        int    `json:"confirmation_count"`
+	CooldownRemainingSeconds int64  `json:"cooldown_remaining_seconds,omitempty"`
+	Reason                   string `json:"reason"`
 }
 
 type State struct {
@@ -63,6 +64,7 @@ func Decide(cfg stack.Config, state State, checks []tunnel.Check, now time.Time)
 	}
 	if cfg.Failover.CooldownSeconds > 0 && state.LastChangeUnix > 0 && now.Unix()-state.LastChangeUnix < int64(cfg.Failover.CooldownSeconds) {
 		decision.Pending = true
+		decision.CooldownRemainingSeconds = int64(cfg.Failover.CooldownSeconds) - (now.Unix() - state.LastChangeUnix)
 		decision.Reason = "cooldown active"
 		return decision, state
 	}

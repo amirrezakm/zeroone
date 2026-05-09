@@ -23,7 +23,7 @@ type QuotaPlan = { generated_at: number; actions: Array<{email:string; used_byte
 type BandwidthPlan = { device: string; limits: Array<{email:string; port:number; download_mbps:number; upload_mbps:number}>; needs_apply: boolean; apply_locked: boolean; tc_commands: string[] };
 type SystemInfo = { cpu:{percent:number; detail:string}; ram:{percent:number; detail:string; used_bytes:number; total_bytes:number}; tunnels:Array<{name:string; rx_bytes:number; tx_bytes:number}>; updated_at:number };
 type FailoverMode = { outbound_tag:string; interface?:string };
-type FailoverDecision = { decision:{current:FailoverMode; desired:FailoverMode; effective:FailoverMode; pending:boolean; confirmation_count:number; reason:string} };
+type FailoverDecision = { decision:{current:FailoverMode; desired:FailoverMode; effective:FailoverMode; pending:boolean; confirmation_count:number; cooldown_remaining_seconds?:number; reason:string} };
 type ConnectTest = { ok:boolean; target:string; address:string; route:string; interface?:string; local_ipv4?:string; latency_ms:number; error?:string };
 
 const apiBase = import.meta.env.VITE_API_BASE || '';
@@ -115,7 +115,7 @@ function renderStatus(summary: Summary, health: Health, plan: ApplyPlan, usage: 
         <article><span>Desired</span><strong>${esc(formatMode(decision.desired))}</strong></article>
         <article><span>Effective</span><strong>${esc(formatMode(decision.effective))}</strong></article>
       </div>
-      <p class="muted">${esc(decision.reason)}</p>
+      <p class="muted">${esc(decision.reason)}${decision.cooldown_remaining_seconds ? ` · cooldown ${decision.cooldown_remaining_seconds}s` : ''}</p>
     </section>
     <section class="panel">
       <div class="panel-head"><h2>Route test</h2><span>TCP connect from server</span></div>
