@@ -13,6 +13,7 @@ import (
 	"github.com/sakhtar/xray-stack-zeroone/internal/enforce"
 	"github.com/sakhtar/xray-stack-zeroone/internal/failover"
 	"github.com/sakhtar/xray-stack-zeroone/internal/links"
+	"github.com/sakhtar/xray-stack-zeroone/internal/monitor"
 	"github.com/sakhtar/xray-stack-zeroone/internal/stack"
 	"github.com/sakhtar/xray-stack-zeroone/internal/tunnel"
 	"github.com/sakhtar/xray-stack-zeroone/internal/usage"
@@ -29,6 +30,8 @@ func NewServer(cfg stack.Config, configPath string, allowApply bool) http.Handle
 	s := &Server{cfg: cfg, configPath: configPath, allowApply: allowApply}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.health)
+	mux.HandleFunc("GET /api/system", s.system)
+	mux.HandleFunc("GET /api/users/activity", s.userActivity)
 	mux.HandleFunc("GET /api/config/summary", s.summary)
 	mux.HandleFunc("GET /api/xray/generated", s.generatedXray)
 	mux.HandleFunc("GET /api/xray/apply-plan", s.xrayApplyPlan)
@@ -49,6 +52,8 @@ func NewServer(cfg stack.Config, configPath string, allowApply bool) http.Handle
 	mux.HandleFunc("POST /api/direct-domains", s.addDirectDomain)
 	mux.HandleFunc("DELETE /api/direct-domains", s.deleteDirectDomain)
 	mux.HandleFunc("POST /api/socks", s.addSOCKS)
+	mux.HandleFunc("PUT /api/socks", s.updateSOCKS)
+	mux.HandleFunc("DELETE /api/socks", s.deleteSOCKS)
 	mux.HandleFunc("GET /", s.ui)
 	return mux
 }
@@ -78,6 +83,24 @@ func (s *Server) save(w http.ResponseWriter) bool {
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	checks := tunnel.CheckAll(r.Context(), s.cfg.Tunnels, s.cfg.Failover.ProbeIP, s.cfg.Failover.ProbePort)
 	s.write(w, map[string]any{"ok": true, "generated_at": time.Now().Format(time.RFC3339), "tunnels": checks})
+}
+
+func (s *Server) system(w http.ResponseWriter, r *http.Request) {
+	s.write(w, monitor.SystemSnapshot(s.cfg))
+}
+
+func (s *Server) userActivity(w http.ResponseWriter, r *http.Request) {
+	email := r.URL.Query().Get("email")
+	if email == "" {
+		s.fail(w, 400, fmt.Errorf("email is required"))
+		return
+	}
+	items, err := monitor.RecentActivity(r.Context(), nil, email, 180, 40)
+	if err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	s.write(w, map[string]any{"email": email, "items": items})
 }
 
 func (s *Server) failoverDecision(w http.ResponseWriter, r *http.Request) {
@@ -416,6 +439,45 @@ func (s *Server) addSOCKS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.write(w, map[string]any{"ok": true, "name": req.Name, "port": req.Port})
+}
+
+func (s *Server) updateSOCKS(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		OldUsername string `json:"old_username"`
+		Name        string `json:"name"`
+		Listen      string `json:"listen"`
+		Port        int    `json:"port"`
+		Username    string `json:"username"`
+		Password    string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.fail(w, 400, err)
+		return
+	}
+	if req.Listen == "" {
+		req.Listen = "0.0.0.0"
+	}
+	next := stack.SOCKSInbound{Name: req.Name, Listen: req.Listen, Port: req.Port, Username: req.Username, Password: req.Password}
+	if err := s.cfg.UpdateSOCKS(req.OldUsername, next); err != nil {
+		s.fail(w, 400, err)
+		return
+	}
+	if !s.save(w) {
+		return
+	}
+	s.write(w, map[string]any{"ok": true})
+}
+
+func (s *Server) deleteSOCKS(w http.ResponseWriter, r *http.Request) {
+	username := r.URL.Query().Get("username")
+	if err := s.cfg.DeleteSOCKS(username); err != nil {
+		s.fail(w, 404, err)
+		return
+	}
+	if !s.save(w) {
+		return
+	}
+	s.write(w, map[string]any{"ok": true})
 }
 
 func (s *Server) ui(w http.ResponseWriter, r *http.Request) {

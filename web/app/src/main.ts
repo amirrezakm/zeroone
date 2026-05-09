@@ -21,6 +21,7 @@ type ApplyPlan = { ok: boolean; valid: boolean; config_path: string; allow_apply
 type Usage = { updated_at: number; users: Array<{email:string; uplink:number; downlink:number; total:number}> };
 type QuotaPlan = { generated_at: number; actions: Array<{email:string; used_bytes:number; quota_bytes:number; action:string; reason:string}> };
 type BandwidthPlan = { device: string; limits: Array<{email:string; port:number; download_mbps:number; upload_mbps:number}>; needs_apply: boolean; apply_locked: boolean; tc_commands: string[] };
+type SystemInfo = { cpu:{percent:number; detail:string}; ram:{percent:number; detail:string; used_bytes:number; total_bytes:number}; tunnels:Array<{name:string; rx_bytes:number; tx_bytes:number}>; updated_at:number };
 
 const apiBase = import.meta.env.VITE_API_BASE || '';
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -43,7 +44,7 @@ function bytes(value: number) {
 }
 function linkText(links: Link[]) { return (links || []).map(l => `${l.name}\n${l.url}`).join('\n\n'); }
 
-function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage, quota: QuotaPlan, bandwidth: BandwidthPlan) {
+function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage, quota: QuotaPlan, bandwidth: BandwidthPlan, system: SystemInfo) {
   latestSummary = summary;
   const topUsers = [...usage.users].sort((a,b) => b.total - a.total).slice(0, 6);
   app.innerHTML = `
@@ -66,7 +67,7 @@ function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage,
         <button data-tab="routes">Routes</button>
         <button data-tab="socks">SOCKS</button>
       </section>
-      <section id="tab-status" class="tab-panel">${renderStatus(summary, health, plan, usage, quota, bandwidth, topUsers)}</section>
+      <section id="tab-status" class="tab-panel">${renderStatus(summary, health, plan, usage, quota, bandwidth, system, topUsers)}</section>
       <section id="tab-users" class="tab-panel hidden">${renderUsers(summary)}</section>
       <section id="tab-routes" class="tab-panel hidden">${renderRoutes(summary)}</section>
       <section id="tab-socks" class="tab-panel hidden">${renderSocks(summary)}</section>
@@ -74,8 +75,13 @@ function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage,
   bindEvents();
 }
 
-function renderStatus(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage, quota: QuotaPlan, bandwidth: BandwidthPlan, topUsers: Usage['users']) {
+function renderStatus(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage, quota: QuotaPlan, bandwidth: BandwidthPlan, system: SystemInfo, topUsers: Usage['users']) {
   return `
+    <section class="metrics">
+      <article><span>CPU</span><strong>${system.cpu.percent.toFixed(0)}%</strong><small>${esc(system.cpu.detail)}</small></article>
+      <article><span>RAM</span><strong>${system.ram.percent.toFixed(0)}%</strong><small>${esc(system.ram.detail)}</small></article>
+      ${system.tunnels.map(t => `<article><span>${esc(t.name)} traffic</span><strong>${bytes(t.rx_bytes + t.tx_bytes)}</strong><small>in ${bytes(t.rx_bytes)} · out ${bytes(t.tx_bytes)}</small></article>`).join('')}
+    </section>
     <section class="grid2">
       <section class="panel">
         <div class="panel-head"><h2>Tunnels</h2><span>${new Date(health.generated_at).toLocaleString()}</span></div>
@@ -115,6 +121,7 @@ function renderUsers(summary: Summary) {
             <div><h3>${esc(u.email)}</h3><p>${u.uuid.slice(0, 8)}...${u.uuid.slice(-4)} · ${u.enabled ? 'enabled' : 'disabled'}</p><p class="muted">quota ${u.quota_bytes ? bytes(u.quota_bytes) : 'none'} · speed ${u.download_mbps || 'none'}/${u.upload_mbps || 'none'} Mbps${u.bandwidth_port ? ` · port ${u.bandwidth_port}` : ''}</p></div>
             <div class="row-actions">
               <button data-view-user="${esc(u.email)}">View config</button>
+              <button data-activity-user="${esc(u.email)}">Activity</button>
               <button data-edit-user="${esc(u.email)}">Edit</button>
               <button data-quota-user="${esc(u.email)}">Quota</button>
               <button data-speed-user="${esc(u.email)}">Speed</button>
@@ -145,7 +152,7 @@ function renderRoutes(summary: Summary) {
 }
 
 function renderSocks(summary: Summary) {
-  return `<section class="panel"><div class="panel-head"><h2>SOCKS users</h2></div><div class="user-list">${summary.socks_items.map(s => `<article class="row-card"><div><h3>${esc(s.username)}</h3><p>${esc(s.name)} · port ${s.port}</p></div><button data-view-socks="${esc(s.username)}">View config</button></article>`).join('')}</div></section>`;
+  return `<section class="panel"><div class="panel-head"><h2>SOCKS users</h2><button id="add-socks">Add SOCKS</button></div><div class="user-list">${summary.socks_items.map(s => `<article class="row-card"><div><h3>${esc(s.username)}</h3><p>${esc(s.name)} · port ${s.port}</p></div><div class="row-actions"><button data-view-socks="${esc(s.username)}">View config</button><button data-edit-socks="${esc(s.username)}">Edit</button><button class="danger" data-delete-socks="${esc(s.username)}">Delete</button></div></article>`).join('')}</div></section>`;
 }
 
 function bindEvents() {
@@ -157,9 +164,13 @@ function bindEvents() {
   document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab!)));
   document.querySelector('#add-user')?.addEventListener('click', addUser);
   document.querySelector('#add-direct')?.addEventListener('click', addDirect);
+  document.querySelector('#add-socks')?.addEventListener('click', addSocks);
   document.querySelector('#copy-config')?.addEventListener('click', copyConfig);
   document.querySelectorAll<HTMLButtonElement>('[data-view-user]').forEach(b => b.addEventListener('click', () => showUserConfig(b.dataset.viewUser!)));
+  document.querySelectorAll<HTMLButtonElement>('[data-activity-user]').forEach(b => b.addEventListener('click', () => showActivity(b.dataset.activityUser!)));
   document.querySelectorAll<HTMLButtonElement>('[data-view-socks]').forEach(b => b.addEventListener('click', () => showSocksConfig(b.dataset.viewSocks!)));
+  document.querySelectorAll<HTMLButtonElement>('[data-edit-socks]').forEach(b => b.addEventListener('click', () => editSocks(b.dataset.editSocks!)));
+  document.querySelectorAll<HTMLButtonElement>('[data-delete-socks]').forEach(b => b.addEventListener('click', () => deleteSocks(b.dataset.deleteSocks!)));
   document.querySelectorAll<HTMLButtonElement>('[data-edit-user]').forEach(b => b.addEventListener('click', () => editUser(b.dataset.editUser!)));
   document.querySelectorAll<HTMLButtonElement>('[data-quota-user]').forEach(b => b.addEventListener('click', () => setQuota(b.dataset.quotaUser!)));
   document.querySelectorAll<HTMLButtonElement>('[data-speed-user]').forEach(b => b.addEventListener('click', () => setSpeed(b.dataset.speedUser!)));
@@ -217,6 +228,11 @@ async function setSpeed(email: string) {
 }
 function showUserConfig(email: string) { const u = selectedUser(email); if (u) output(linkText(u.links || [])); }
 function showSocksConfig(username: string) { const s = selectedSocks(username); if (s) output(linkText(s.links || [])); }
+async function showActivity(email: string) {
+  const data = await fetchJSON<{items:Array<{time:string; client_ip:string; protocol:string; destination:string; outbound:string}>}>(`/api/users/activity?email=${encodeURIComponent(email)}`);
+  output(data.items.length ? data.items.map(a => `${a.time}  ${a.client_ip}  ${a.protocol}:${a.destination}  ${a.outbound}`).join('\n') : 'No recent activity.');
+  message(`Recent activity for ${email}`);
+}
 async function copyConfig() {
   const value = document.querySelector<HTMLTextAreaElement>('#config-output')?.value || '';
   await navigator.clipboard.writeText(value); message('Copied.');
@@ -226,6 +242,27 @@ async function addDirect() {
   if (!domain) return;
   await post('/api/direct-domains', {domain: domain.trim()});
   await load(); switchTab('routes');
+}
+async function addSocks() {
+  const username = prompt('SOCKS username'); if (!username) return;
+  const port = Number(prompt('Port', '1081') || 0); if (!port) return;
+  const password = prompt('Password. Empty = auto-generate.', '') || '';
+  await post('/api/socks', {name: username.trim(), listen: '0.0.0.0', port, username: username.trim(), password});
+  await load(); switchTab('socks');
+}
+async function editSocks(username: string) {
+  const s = selectedSocks(username); if (!s) return;
+  const nextUser = prompt('SOCKS username', s.username); if (!nextUser) return;
+  const nextName = prompt('Name/tag', s.name) || nextUser;
+  const nextPort = Number(prompt('Port', String(s.port)) || 0); if (!nextPort) return;
+  const nextPass = prompt('Password. Empty = keep current.', '') || '';
+  await put('/api/socks', {old_username: s.username, name: nextName.trim(), listen: s.listen || '0.0.0.0', port: nextPort, username: nextUser.trim(), password: nextPass});
+  await load(); switchTab('socks');
+}
+async function deleteSocks(username: string) {
+  if (!confirm(`Delete SOCKS user ${username}?`)) return;
+  await fetchJSON(`/api/socks?username=${encodeURIComponent(username)}`, {method: 'DELETE'});
+  await load(); switchTab('socks');
 }
 async function deleteDirect(domain: string) {
   await fetchJSON(`/api/direct-domains?domain=${encodeURIComponent(domain)}`, {method: 'DELETE'});
@@ -239,15 +276,16 @@ async function applyBandwidth() { if (confirm('Apply nft/tc bandwidth rules on t
 async function load() {
   app.innerHTML = '<div class="loading">Loading...</div>';
   try {
-    const [summary, health, plan, usage, quota, bandwidth] = await Promise.all([
+    const [summary, health, plan, usage, quota, bandwidth, system] = await Promise.all([
       fetchJSON<Summary>('/api/config/summary'),
       fetchJSON<Health>('/api/health'),
       fetchJSON<ApplyPlan>('/api/xray/apply-plan').catch(error => ({ok:false, valid:false, config_path:'', allow_apply:false, error:String(error)})),
       fetchJSON<Usage>('/api/usage').catch(() => ({updated_at:0, users:[]})),
       fetchJSON<QuotaPlan>('/api/quota/plan').catch(() => ({generated_at:0, actions:[]})),
       fetchJSON<BandwidthPlan>('/api/bandwidth/plan').catch(() => ({device:'eth0', limits:[], needs_apply:false, apply_locked:true, tc_commands:[]})),
+      fetchJSON<SystemInfo>('/api/system').catch(() => ({cpu:{percent:0, detail:'unavailable'}, ram:{percent:0, detail:'unavailable', used_bytes:0, total_bytes:0}, tunnels:[], updated_at:0})),
     ]);
-    render(summary, health, plan, usage, quota, bandwidth);
+    render(summary, health, plan, usage, quota, bandwidth, system);
   } catch (error) { app.innerHTML = `<div class="error-page"><h1>Load failed</h1><pre>${esc(String(error))}</pre></div>`; }
 }
 void load();

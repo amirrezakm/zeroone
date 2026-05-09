@@ -152,6 +152,40 @@ func (c *Config) AddSOCKS(s SOCKSInbound) error {
 	return c.Validate()
 }
 
+func (c *Config) UpdateSOCKS(oldUsername string, next SOCKSInbound) error {
+	if oldUsername == "" || next.Name == "" || next.Username == "" || next.Port <= 0 {
+		return fmt.Errorf("old_username, name, username, and port are required")
+	}
+	for i := range c.Xray.Inbounds.PublicSOCKS {
+		if c.Xray.Inbounds.PublicSOCKS[i].Username != oldUsername {
+			continue
+		}
+		if next.Password == "" {
+			next.Password = c.Xray.Inbounds.PublicSOCKS[i].Password
+		}
+		for j, existing := range c.Xray.Inbounds.PublicSOCKS {
+			if j == i {
+				continue
+			}
+			if existing.Name == next.Name || existing.Port == next.Port || existing.Username == next.Username {
+				return fmt.Errorf("duplicate SOCKS name, username, or port")
+			}
+		}
+		c.Xray.Inbounds.PublicSOCKS[i] = next
+		return c.Validate()
+	}
+	return fmt.Errorf("SOCKS user %q not found", oldUsername)
+}
+
+func (c *Config) DeleteSOCKS(username string) error {
+	before := len(c.Xray.Inbounds.PublicSOCKS)
+	c.Xray.Inbounds.PublicSOCKS = slices.DeleteFunc(c.Xray.Inbounds.PublicSOCKS, func(s SOCKSInbound) bool { return s.Username == username })
+	if len(c.Xray.Inbounds.PublicSOCKS) == before {
+		return fmt.Errorf("SOCKS user %q not found", username)
+	}
+	return c.Validate()
+}
+
 func newUUID() string {
 	var b [16]byte
 	_, _ = rand.Read(b[:])
