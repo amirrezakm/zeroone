@@ -43,8 +43,12 @@ func (m *Manager) runOnce(ctx context.Context, cfg stack.Config) {
 	checks := tunnel.CheckAll(ctx, cfg.Tunnels, cfg.Failover.ProbeIP, cfg.Failover.ProbePort)
 	decision, nextState := Decide(cfg, m.State, checks, time.Now())
 	m.State = nextState
-	if decision.Pending || decision.Effective == decision.Current {
+	if decision.Pending {
 		slog.Info("failover decision", "current", decision.Current, "desired", decision.Desired, "pending", decision.Pending, "confirmations", decision.ConfirmationCount, "reason", decision.Reason)
+		return
+	}
+	if decision.Effective == decision.Current {
+		slog.Debug("failover decision", "current", decision.Current, "desired", decision.Desired, "reason", decision.Reason)
 		return
 	}
 

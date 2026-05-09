@@ -14,6 +14,7 @@ import (
 	"github.com/sakhtar/xray-stack-zeroone/internal/api"
 	"github.com/sakhtar/xray-stack-zeroone/internal/failover"
 	"github.com/sakhtar/xray-stack-zeroone/internal/stack"
+	"github.com/sakhtar/xray-stack-zeroone/internal/tunnel"
 )
 
 func main() {
@@ -21,6 +22,7 @@ func main() {
 	printXray := flag.Bool("print-xray", false, "print generated xray config and exit")
 	allowApply := flag.Bool("allow-apply", false, "allow endpoints that modify live Xray/systemd state")
 	manageFailover := flag.Bool("manage-failover", false, "run the automatic Xray tunnel failover loop")
+	manageVPN := flag.Bool("manage-vpn", false, "restart tunnel services when their unit or interface goes down")
 	flag.Parse()
 
 	cfg, err := stack.Load(*configPath)
@@ -52,6 +54,10 @@ func main() {
 	if *manageFailover {
 		slog.Info("starting failover manager")
 		go (&failover.Manager{ConfigPath: *configPath}).Run(ctx)
+	}
+	if *manageVPN {
+		slog.Info("starting tunnel supervisor")
+		go (&tunnel.Supervisor{ConfigPath: *configPath}).Run(ctx)
 	}
 	<-ctx.Done()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
