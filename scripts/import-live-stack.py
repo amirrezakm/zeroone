@@ -4,6 +4,10 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 xray_config = json.loads((root / 'rootfs/usr/local/etc/xray/config.json').read_text())
+try:
+    bandwidth_limits = json.loads((root / 'rootfs/usr/local/etc/xray/bandwidth-limits.json').read_text())
+except Exception:
+    bandwidth_limits = {}
 
 def first_out(tag):
     return next(o for o in xray_config.get('outbounds', []) if o.get('tag') == tag)
@@ -32,7 +36,17 @@ users = []
 for inbound in xray_config.get('inbounds', []):
     if inbound.get('protocol') == 'vless' and inbound.get('port') == 443:
         for c in inbound.get('settings', {}).get('clients', []):
-            users.append({'email': c.get('email', ''), 'uuid': c.get('id', ''), 'enabled': True})
+            email = c.get('email', '')
+            limit = bandwidth_limits.get(email, {}) if isinstance(bandwidth_limits, dict) else {}
+            users.append({
+                'email': email,
+                'uuid': c.get('id', ''),
+                'enabled': True,
+                'quota_bytes': int(c.get('quota_bytes') or 0),
+                'download_mbps': int(float(limit.get('download_mbps') or 0)),
+                'upload_mbps': int(float(limit.get('upload_mbps') or 0)),
+                'bandwidth_port': int(limit.get('port') or 0),
+            })
         break
 
 socks = []
@@ -68,6 +82,8 @@ stack = {
         'backup_dir': '/root/xray-audit-backups',
         'user_usage_path': '/usr/local/etc/xray/user-usage.json',
         'socks_usage_path': '/usr/local/etc/xray/socks-usage.json',
+        'bandwidth_device': 'eth0',
+        'bandwidth_config_path': '/usr/local/etc/xray/bandwidth-limits.json',
     },
     'xray': {
         'log_level': xray_config.get('log', {}).get('loglevel', 'warning'),

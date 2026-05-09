@@ -41,5 +41,8 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .usage-list article { display: grid; gap: 4px; border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
 .usage-list span { font-weight: 800; font-size: 18px; }
 .usage-list small { color: var(--muted); }
+.table { display: grid; gap: 8px; margin-bottom: 12px; }
+.table article { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.table span, .table small { color: var(--muted); font-size: 13px; }
 @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } .shell-header { align-items: flex-start; flex-direction: column; } }
 pre { white-space: pre-wrap; }

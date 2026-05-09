@@ -15,13 +15,15 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	PublicIP       string `json:"public_ip"`
-	AdminListen    string `json:"admin_listen"`
-	XrayConfigPath string `json:"xray_config_path"`
-	XrayBinary     string `json:"xray_binary"`
-	BackupDir      string `json:"backup_dir"`
-	UserUsagePath  string `json:"user_usage_path"`
-	SocksUsagePath string `json:"socks_usage_path"`
+	PublicIP            string `json:"public_ip"`
+	AdminListen         string `json:"admin_listen"`
+	XrayConfigPath      string `json:"xray_config_path"`
+	XrayBinary          string `json:"xray_binary"`
+	BackupDir           string `json:"backup_dir"`
+	UserUsagePath       string `json:"user_usage_path"`
+	SocksUsagePath      string `json:"socks_usage_path"`
+	BandwidthDevice     string `json:"bandwidth_device,omitempty"`
+	BandwidthConfigPath string `json:"bandwidth_config_path,omitempty"`
 }
 
 type XrayConfig struct {
@@ -51,12 +53,13 @@ type SOCKSInbound struct {
 }
 
 type User struct {
-	Email        string `json:"email"`
-	UUID         string `json:"uuid"`
-	Enabled      bool   `json:"enabled"`
-	QuotaBytes   int64  `json:"quota_bytes,omitempty"`
-	DownloadMbps int    `json:"download_mbps,omitempty"`
-	UploadMbps   int    `json:"upload_mbps,omitempty"`
+	Email         string `json:"email"`
+	UUID          string `json:"uuid"`
+	Enabled       bool   `json:"enabled"`
+	QuotaBytes    int64  `json:"quota_bytes,omitempty"`
+	DownloadMbps  int    `json:"download_mbps,omitempty"`
+	UploadMbps    int    `json:"upload_mbps,omitempty"`
+	BandwidthPort int    `json:"bandwidth_port,omitempty"`
 }
 
 type OutboundSet struct {
@@ -153,17 +156,54 @@ func (c Config) Validate() error {
 		return fmt.Errorf("xray.outbounds.proxy.tag is required")
 	}
 	seen := map[string]bool{}
-	for _, u := range c.Xray.Users {
-		if !u.Enabled {
-			continue
+	ports := map[int]string{}
+	addPort := func(port int, owner string) error {
+		if port == 0 {
+			return nil
 		}
+		if existing := ports[port]; existing != "" {
+			return fmt.Errorf("port %d is used by both %q and %q", port, existing, owner)
+		}
+		ports[port] = owner
+		return nil
+	}
+	for _, item := range []struct {
+		port  int
+		owner string
+	}{
+		{c.Xray.Inbounds.VLESSWSPort, "vless-ws"},
+		{c.Xray.Inbounds.VLESSXHTTPPort, "vless-xhttp"},
+		{c.Xray.Inbounds.LocalSOCKSPort, "local-socks"},
+		{c.Xray.APIPort, "xray-api"},
+	} {
+		if err := addPort(item.port, item.owner); err != nil {
+			return err
+		}
+	}
+	for _, u := range c.Xray.Users {
 		if u.Email == "" || u.UUID == "" {
-			return fmt.Errorf("enabled users need email and uuid")
+			return fmt.Errorf("users need email and uuid")
 		}
 		if seen[u.Email] {
 			return fmt.Errorf("duplicate user email %q", u.Email)
 		}
 		seen[u.Email] = true
+		if u.QuotaBytes < 0 || u.DownloadMbps < 0 || u.UploadMbps < 0 {
+			return fmt.Errorf("negative limits are not valid for user %q", u.Email)
+		}
+		if u.BandwidthPort != 0 {
+			if u.BandwidthPort < 1 || u.BandwidthPort > 65535 {
+				return fmt.Errorf("invalid bandwidth port for user %q", u.Email)
+			}
+			if err := addPort(u.BandwidthPort, "bandwidth "+u.Email); err != nil {
+				return err
+			}
+		}
+	}
+	for _, s := range c.Xray.Inbounds.PublicSOCKS {
+		if err := addPort(s.Port, "SOCKS "+s.Name); err != nil {
+			return err
+		}
 	}
 	return nil
 }

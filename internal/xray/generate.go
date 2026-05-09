@@ -18,6 +18,11 @@ func Generate(cfg stack.Config) Object {
 	for _, socks := range cfg.Xray.Inbounds.PublicSOCKS {
 		inbounds = append(inbounds, socksInbound(socks))
 	}
+	for _, u := range cfg.Xray.Users {
+		if u.Enabled && u.BandwidthPort > 0 && (u.DownloadMbps > 0 || u.UploadMbps > 0) {
+			inbounds = append(inbounds, limitedVLESSInbound(u))
+		}
+	}
 	inbounds = append(inbounds,
 		localSOCKSInbound(cfg.Xray.Inbounds.LocalSOCKSPort),
 		vlessXHTTPInbound(cfg.Xray.Inbounds.VLESSXHTTPPort, "127.0.0.1", clients, "/xhttp"),
@@ -49,6 +54,21 @@ func vlessXHTTPInbound(port int, listen string, clients []Object, path string) O
 
 func socksInbound(s stack.SOCKSInbound) Object {
 	return Object{"tag": "managed-socks-" + s.Name, "port": s.Port, "listen": s.Listen, "protocol": "socks", "settings": Object{"auth": "password", "accounts": []Object{{"user": s.Username, "pass": s.Password}}, "udp": true}, "sniffing": sniffing()}
+}
+
+func limitedVLESSInbound(u stack.User) Object {
+	return Object{
+		"tag":      "limited-" + u.Email,
+		"port":     u.BandwidthPort,
+		"listen":   "0.0.0.0",
+		"protocol": "vless",
+		"settings": Object{
+			"clients":    []Object{{"id": u.UUID, "email": u.Email}},
+			"decryption": "none",
+		},
+		"streamSettings": Object{"network": "ws", "security": "none", "wsSettings": Object{"path": "/limited/" + u.Email}},
+		"sniffing":       sniffing(),
+	}
 }
 
 func localSOCKSInbound(port int) Object {

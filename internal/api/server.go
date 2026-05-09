@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/sakhtar/xray-stack-zeroone/internal/bandwidth"
+	"github.com/sakhtar/xray-stack-zeroone/internal/enforce"
 	"github.com/sakhtar/xray-stack-zeroone/internal/failover"
 	"github.com/sakhtar/xray-stack-zeroone/internal/stack"
 	"github.com/sakhtar/xray-stack-zeroone/internal/tunnel"
@@ -29,7 +31,11 @@ func NewServer(cfg stack.Config, configPath string, allowApply bool) http.Handle
 	mux.HandleFunc("POST /api/xray/apply", s.xrayApply)
 	mux.HandleFunc("GET /api/failover/decision", s.failoverDecision)
 	mux.HandleFunc("GET /api/usage", s.usage)
+	mux.HandleFunc("POST /api/usage/sync", s.syncUsage)
 	mux.HandleFunc("POST /api/usage/reset", s.resetUsage)
+	mux.HandleFunc("GET /api/quota/plan", s.quotaPlan)
+	mux.HandleFunc("POST /api/quota/apply", s.quotaApply)
+	mux.HandleFunc("GET /api/bandwidth/plan", s.bandwidthPlan)
 	mux.HandleFunc("POST /api/users", s.addUser)
 	mux.HandleFunc("DELETE /api/users", s.deleteUser)
 	mux.HandleFunc("POST /api/users/quota", s.setUserQuota)
@@ -118,6 +124,25 @@ func (s *Server) usage(w http.ResponseWriter, r *http.Request) {
 	s.write(w, map[string]any{"updated_at": state.UpdatedAt, "users": usage.UserViews(state)})
 }
 
+func (s *Server) syncUsage(w http.ResponseWriter, r *http.Request) {
+	raw, err := usage.QueryXrayUsers(r.Context(), nil, s.xrayAPIServer())
+	if err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	state, err := usage.LoadUserState(s.cfg.Server.UserUsagePath)
+	if err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	state = usage.SyncUsers(state, raw, time.Now())
+	if err := usage.SaveUserState(s.cfg.Server.UserUsagePath, state); err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	s.write(w, map[string]any{"ok": true, "updated_at": state.UpdatedAt, "users": usage.UserViews(state)})
+}
+
 func (s *Server) resetUsage(w http.ResponseWriter, r *http.Request) {
 	if !s.allowApply {
 		s.fail(w, http.StatusForbidden, fmt.Errorf("usage reset is disabled; start with -allow-apply"))
@@ -127,7 +152,7 @@ func (s *Server) resetUsage(w http.ResponseWriter, r *http.Request) {
 	for _, u := range s.cfg.Xray.Users {
 		known = append(known, u.Email)
 	}
-	raw, err := usage.QueryXrayUsers(r.Context(), nil, "127.0.0.1:10085")
+	raw, err := usage.QueryXrayUsers(r.Context(), nil, s.xrayAPIServer())
 	if err != nil {
 		s.fail(w, 500, err)
 		return
@@ -143,6 +168,48 @@ func (s *Server) resetUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.write(w, map[string]any{"ok": true, "updated_at": state.UpdatedAt, "users": usage.UserViews(state)})
+}
+
+func (s *Server) quotaPlan(w http.ResponseWriter, r *http.Request) {
+	state, err := usage.LoadUserState(s.cfg.Server.UserUsagePath)
+	if err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	s.write(w, enforce.PlanQuota(s.cfg, state, time.Now()))
+}
+
+func (s *Server) quotaApply(w http.ResponseWriter, r *http.Request) {
+	if !s.allowApply {
+		s.fail(w, http.StatusForbidden, fmt.Errorf("quota apply is disabled; start with -allow-apply"))
+		return
+	}
+	state, err := usage.LoadUserState(s.cfg.Server.UserUsagePath)
+	if err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	plan := enforce.PlanQuota(s.cfg, state, time.Now())
+	next := s.cfg
+	if err := enforce.ApplyQuotaPlan(&next, plan); err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	if err := stack.Save(s.configPath, next); err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	s.cfg = next
+	applyPlan, err := (xray.Manager{}).Apply(r.Context(), s.cfg)
+	if err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	s.write(w, map[string]any{"ok": true, "quota_plan": plan, "xray_apply": applyPlan})
+}
+
+func (s *Server) bandwidthPlan(w http.ResponseWriter, r *http.Request) {
+	s.write(w, bandwidth.BuildPlan(s.cfg, s.allowApply))
 }
 
 func (s *Server) addUser(w http.ResponseWriter, r *http.Request) {
@@ -212,7 +279,14 @@ func (s *Server) setUserBandwidth(w http.ResponseWriter, r *http.Request) {
 	if !s.save(w) {
 		return
 	}
-	s.write(w, map[string]any{"ok": true})
+	port := 0
+	for _, u := range s.cfg.Xray.Users {
+		if u.Email == req.Email {
+			port = u.BandwidthPort
+			break
+		}
+	}
+	s.write(w, map[string]any{"ok": true, "bandwidth_port": port})
 }
 
 func (s *Server) addDirectDomain(w http.ResponseWriter, r *http.Request) {
@@ -264,4 +338,12 @@ func (s *Server) addSOCKS(w http.ResponseWriter, r *http.Request) {
 func (s *Server) index(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(`<!doctype html><html><head><meta charset="utf-8"><title>Xray Stack</title></head><body><h1>Xray Stack</h1><p>Go control plane is running.</p><script>fetch('/api/config/summary').then(r=>r.json()).then(d=>document.body.appendChild(document.createElement('pre')).textContent=JSON.stringify(d,null,2))</script></body></html>`))
+}
+
+func (s *Server) xrayAPIServer() string {
+	port := s.cfg.Xray.APIPort
+	if port == 0 {
+		port = 10085
+	}
+	return fmt.Sprintf("127.0.0.1:%d", port)
 }

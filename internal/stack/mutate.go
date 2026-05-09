@@ -60,10 +60,44 @@ func (c *Config) SetUserBandwidth(email string, downloadMbps, uploadMbps int) er
 		if c.Xray.Users[i].Email == email {
 			c.Xray.Users[i].DownloadMbps = downloadMbps
 			c.Xray.Users[i].UploadMbps = uploadMbps
+			if downloadMbps == 0 && uploadMbps == 0 {
+				c.Xray.Users[i].BandwidthPort = 0
+			} else if c.Xray.Users[i].BandwidthPort == 0 {
+				port, err := c.NextBandwidthPort()
+				if err != nil {
+					return err
+				}
+				c.Xray.Users[i].BandwidthPort = port
+			}
 			return c.Validate()
 		}
 	}
 	return fmt.Errorf("user %q not found", email)
+}
+
+func (c Config) NextBandwidthPort() (int, error) {
+	used := map[int]bool{}
+	add := func(port int) {
+		if port > 0 {
+			used[port] = true
+		}
+	}
+	add(c.Xray.Inbounds.VLESSWSPort)
+	add(c.Xray.Inbounds.VLESSXHTTPPort)
+	add(c.Xray.Inbounds.LocalSOCKSPort)
+	add(c.Xray.APIPort)
+	for _, s := range c.Xray.Inbounds.PublicSOCKS {
+		add(s.Port)
+	}
+	for _, u := range c.Xray.Users {
+		add(u.BandwidthPort)
+	}
+	for port := 21000; port < 22000; port++ {
+		if !used[port] {
+			return port, nil
+		}
+	}
+	return 0, fmt.Errorf("no free bandwidth port available")
 }
 
 func (c *Config) AddDirectDomain(domain string) error {

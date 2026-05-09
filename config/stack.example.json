@@ -6,7 +6,9 @@
     "xray_binary": "/usr/local/bin/xray",
     "backup_dir": "/root/xray-audit-backups",
     "user_usage_path": "/usr/local/etc/xray/user-usage.json",
-    "socks_usage_path": "/usr/local/etc/xray/socks-usage.json"
+    "socks_usage_path": "/usr/local/etc/xray/socks-usage.json",
+    "bandwidth_device": "eth0",
+    "bandwidth_config_path": "/usr/local/etc/xray/bandwidth-limits.json"
   },
   "xray": {
     "log_level": "warning",
@@ -36,7 +38,10 @@
       {
         "email": "example",
         "uuid": "00000000-0000-4000-8000-000000000000",
-        "enabled": true
+        "enabled": true,
+        "quota_bytes": 0,
+        "download_mbps": 0,
+        "upload_mbps": 0
       }
     ],
     "outbounds": {

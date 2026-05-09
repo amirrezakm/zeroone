@@ -12,6 +12,8 @@ type Summary = {
 type Health = { ok: boolean; generated_at: string; tunnels: Array<{name:string; interface:string; up:boolean; healthy:boolean; ipv4?:string; latency_ms?:number; error?:string}> };
 type ApplyPlan = { ok: boolean; valid: boolean; config_path: string; allow_apply: boolean; error?: string };
 type Usage = { updated_at: number; users: Array<{email:string; uplink:number; downlink:number; total:number}> };
+type QuotaPlan = { generated_at: number; actions: Array<{email:string; used_bytes:number; quota_bytes:number; action:string; reason:string}> };
+type BandwidthPlan = { device: string; limits: Array<{email:string; port:number; download_mbps:number; upload_mbps:number}>; needs_apply: boolean; apply_locked: boolean; tc_commands: string[] };
 
 const apiBase = import.meta.env.VITE_API_BASE || '';
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -30,12 +32,12 @@ function bytes(value: number) {
   return `${n.toFixed(i ? 1 : 0)} ${units[i]}`;
 }
 
-function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage) {
+function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage, quota: QuotaPlan, bandwidth: BandwidthPlan) {
   const topUsers = [...usage.users].sort((a,b) => b.total - a.total).slice(0, 6);
   app.innerHTML = `
     <header class="shell-header">
       <div><p class="eyebrow">Xray Stack</p><h1>${summary.public_ip}</h1></div>
-      <div class="actions"><button id="refresh">Refresh</button><button id="apply" ${summary.allow_apply ? '' : 'disabled'}>Apply Xray</button></div>
+      <div class="actions"><button id="sync-usage">Sync usage</button><button id="refresh">Refresh</button><button id="apply" ${summary.allow_apply ? '' : 'disabled'}>Apply Xray</button></div>
     </header>
     <main class="shell">
       <section class="metrics">
@@ -43,6 +45,8 @@ function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage)
         <article><span>SOCKS</span><strong>${summary.socks}</strong></article>
         <article><span>Failover</span><strong>${summary.failover.enabled ? 'On' : 'Off'}</strong></article>
         <article><span>Apply</span><strong>${summary.allow_apply ? 'Enabled' : 'Locked'}</strong></article>
+        <article><span>Quota actions</span><strong>${quota.actions.length}</strong></article>
+        <article><span>Speed limits</span><strong>${bandwidth.limits.length}</strong></article>
       </section>
       <section class="grid2">
         <section class="panel">
@@ -60,9 +64,21 @@ function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage)
         <div class="panel-head"><h2>Usage</h2><span>${usage.updated_at ? new Date(usage.updated_at * 1000).toLocaleString() : 'not synced'}</span></div>
         <div class="usage-list">${topUsers.map(u => `<article><strong>${u.email}</strong><span>${bytes(u.total)}</span><small>up ${bytes(u.uplink)} · down ${bytes(u.downlink)}</small></article>`).join('') || '<p class="muted">No usage yet.</p>'}</div>
       </section>
+      <section class="grid2">
+        <section class="panel">
+          <div class="panel-head"><h2>Quota enforcement</h2>${badge(quota.actions.length === 0, quota.actions.length ? `${quota.actions.length} pending` : 'clear')}</div>
+          ${quota.actions.length ? `<div class="table">${quota.actions.map(a => `<article><strong>${a.email}</strong><span>${bytes(a.used_bytes)} / ${bytes(a.quota_bytes)}</span><small>${a.action}</small></article>`).join('')}</div><button id="apply-quota" ${summary.allow_apply ? '' : 'disabled'}>Apply quota actions</button>` : '<p class="muted">No enabled user is over quota.</p>'}
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>Bandwidth limits</h2><span>${bandwidth.device || 'eth0'}</span></div>
+          ${bandwidth.limits.length ? `<div class="table">${bandwidth.limits.map(l => `<article><strong>${l.email}</strong><span>port ${l.port}</span><small>down ${l.download_mbps || 'none'} Mbps · up ${l.upload_mbps || 'none'} Mbps</small></article>`).join('')}</div>` : '<p class="muted">No per-user speed limits configured.</p>'}
+        </section>
+      </section>
     </main>`;
   document.querySelector('#refresh')?.addEventListener('click', load);
   document.querySelector('#apply')?.addEventListener('click', applyXray);
+  document.querySelector('#sync-usage')?.addEventListener('click', syncUsage);
+  document.querySelector('#apply-quota')?.addEventListener('click', applyQuota);
 }
 
 async function applyXray() {
@@ -71,16 +87,29 @@ async function applyXray() {
   await load();
 }
 
+async function syncUsage() {
+  await fetchJSON('/api/usage/sync', {method: 'POST'});
+  await load();
+}
+
+async function applyQuota() {
+  if (!confirm('Disable users that are over quota and apply Xray config?')) return;
+  await fetchJSON('/api/quota/apply', {method: 'POST'});
+  await load();
+}
+
 async function load() {
   app.innerHTML = '<div class="loading">Loading...</div>';
   try {
-    const [summary, health, plan, usage] = await Promise.all([
+    const [summary, health, plan, usage, quota, bandwidth] = await Promise.all([
       fetchJSON<Summary>('/api/config/summary'),
       fetchJSON<Health>('/api/health'),
       fetchJSON<ApplyPlan>('/api/xray/apply-plan').catch(error => ({ok:false, valid:false, config_path:'', allow_apply:false, error:String(error)})),
       fetchJSON<Usage>('/api/usage').catch(() => ({updated_at:0, users:[]})),
+      fetchJSON<QuotaPlan>('/api/quota/plan').catch(() => ({generated_at:0, actions:[]})),
+      fetchJSON<BandwidthPlan>('/api/bandwidth/plan').catch(() => ({device:'eth0', limits:[], needs_apply:false, apply_locked:true, tc_commands:[]})),
     ]);
-    render(summary, health, plan, usage);
+    render(summary, health, plan, usage, quota, bandwidth);
   } catch (error) { app.innerHTML = `<div class="error-page"><h1>Load failed</h1><pre>${String(error)}</pre></div>`; }
 }
 
