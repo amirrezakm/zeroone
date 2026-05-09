@@ -128,11 +128,15 @@ func routingRules(cfg stack.Config) []Object {
 	if len(cfg.Xray.Routing.ManualBlockDomains) > 0 {
 		r = append(r, Object{"type": "field", "domain": cfg.Xray.Routing.ManualBlockDomains, "outboundTag": "block"})
 	}
+	aiOutboundTag := cfg.Xray.Routing.AIOutboundTag
+	if aiOutboundTag == "" {
+		aiOutboundTag = cfg.Xray.Outbounds.Proxy.Tag
+	}
 	if len(cfg.Xray.Routing.AIUpdateDomains) > 0 {
-		r = append(r, Object{"type": "field", "domain": cfg.Xray.Routing.AIUpdateDomains, "outboundTag": cfg.Xray.Outbounds.Proxy.Tag})
+		r = append(r, Object{"type": "field", "domain": cfg.Xray.Routing.AIUpdateDomains, "outboundTag": aiOutboundTag})
 	}
 	if len(cfg.Xray.Routing.AIDomains) > 0 {
-		r = append(r, Object{"type": "field", "domain": cfg.Xray.Routing.AIDomains, "outboundTag": cfg.Xray.Outbounds.Proxy.Tag})
+		r = append(r, Object{"type": "field", "domain": cfg.Xray.Routing.AIDomains, "outboundTag": aiOutboundTag})
 	}
 	return r
 }

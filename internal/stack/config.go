@@ -91,6 +91,7 @@ type RoutingConfig struct {
 	BlockIPs           []string `json:"block_ips"`
 	AIUpdateDomains    []string `json:"ai_update_domains"`
 	AIDomains          []string `json:"ai_domains"`
+	AIOutboundTag      string   `json:"ai_outbound_tag,omitempty"`
 }
 
 type TunnelConfig struct {

@@ -28,7 +28,15 @@ type State struct {
 }
 
 func CurrentMode(cfg stack.Config) Mode {
-	return Mode{OutboundTag: cfg.Xray.Outbounds.Proxy.Tag, Interface: cfg.Xray.Outbounds.Proxy.Interface}
+	tag := cfg.Xray.Routing.AIOutboundTag
+	if tag == "" {
+		tag = cfg.Xray.Outbounds.Proxy.Tag
+	}
+	mode := Mode{OutboundTag: tag}
+	if tag == cfg.Xray.Outbounds.Proxy.Tag {
+		mode.Interface = cfg.Xray.Outbounds.Proxy.Interface
+	}
+	return mode
 }
 
 func DesiredMode(cfg stack.Config, checks []tunnel.Check) Mode {
@@ -84,6 +92,9 @@ func Decide(cfg stack.Config, state State, checks []tunnel.Check, now time.Time)
 
 func ApplyMode(cfg *stack.Config, mode Mode) {
 	if mode.OutboundTag == cfg.Xray.Outbounds.Proxy.Tag {
+		cfg.Xray.Routing.AIOutboundTag = ""
 		cfg.Xray.Outbounds.Proxy.Interface = mode.Interface
+		return
 	}
+	cfg.Xray.Routing.AIOutboundTag = mode.OutboundTag
 }

@@ -41,7 +41,11 @@ func CheckOne(ctx context.Context, t stack.TunnelConfig, probeIP string, probePo
 	}
 	c.Up, c.IPv4 = true, ip
 	start := time.Now()
-	d := net.Dialer{Timeout: 3 * time.Second, LocalAddr: &net.TCPAddr{IP: net.ParseIP(ip)}}
+	d := net.Dialer{
+		Timeout:   3 * time.Second,
+		LocalAddr: &net.TCPAddr{IP: net.ParseIP(ip)},
+		Control:   bindControl(t.Interface),
+	}
 	conn, err := d.DialContext(ctx, "tcp", fmt.Sprintf("%s:%d", probeIP, probePort))
 	c.LatencyMS = time.Since(start).Milliseconds()
 	if err != nil {

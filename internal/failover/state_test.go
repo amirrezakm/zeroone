@@ -33,3 +33,21 @@ func TestDecideFallback(t *testing.T) {
 		t.Fatalf("expected fallback: %+v", d)
 	}
 }
+
+func TestCurrentModeUsesAIOutboundOverride(t *testing.T) {
+	cfg := testConfig()
+	cfg.Xray.Routing.AIOutboundTag = "priority-proxy"
+	mode := CurrentMode(cfg)
+	if mode.OutboundTag != "priority-proxy" || mode.Interface != "" {
+		t.Fatalf("unexpected mode: %+v", mode)
+	}
+}
+
+func TestApplyModeClearsOverrideForProxy(t *testing.T) {
+	cfg := testConfig()
+	cfg.Xray.Routing.AIOutboundTag = "priority-proxy"
+	ApplyMode(&cfg, Mode{OutboundTag: "proxy", Interface: "tun1"})
+	if cfg.Xray.Routing.AIOutboundTag != "" || cfg.Xray.Outbounds.Proxy.Interface != "tun1" {
+		t.Fatalf("unexpected config: %+v", cfg)
+	}
+}

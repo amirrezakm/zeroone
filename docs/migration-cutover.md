@@ -6,7 +6,9 @@ This is the intended production cutover path after the Go daemon reaches feature
 
 - `xray-stackd` is deployed side by side on `127.0.0.1:8091`.
 - nginx routes both `/monitor/` and `/monitor-go/` to the Go daemon.
-- The old Python monitor is still running on `127.0.0.1:8090` for rollback only.
+- The old Python monitor is disabled; nginx no longer uses `127.0.0.1:8090`.
+- The old shell AI failover service is disabled; `xray-stackd -manage-failover` owns failover decisions.
+- `vpn-monitor` remains active for the primary OpenVPN service until the Go daemon owns tunnel restart policy too.
 - `allow_apply` is disabled by default; enable it only during a controlled change window.
 - The apply pipeline was validated with a temporary user add/apply/delete/apply cycle, then locked again.
 
