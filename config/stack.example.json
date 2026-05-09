@@ -7,6 +7,7 @@
     "backup_dir": "/root/xray-audit-backups",
     "user_usage_path": "/usr/local/etc/xray/user-usage.json",
     "socks_usage_path": "/usr/local/etc/xray/socks-usage.json",
+    "ui_path": "/usr/local/share/xray-stack-ui",
     "bandwidth_device": "eth0",
     "bandwidth_config_path": "/usr/local/etc/xray/bandwidth-limits.json"
   },

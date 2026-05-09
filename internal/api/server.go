@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/sakhtar/xray-stack-zeroone/internal/bandwidth"
@@ -44,7 +47,7 @@ func NewServer(cfg stack.Config, configPath string, allowApply bool) http.Handle
 	mux.HandleFunc("POST /api/direct-domains", s.addDirectDomain)
 	mux.HandleFunc("DELETE /api/direct-domains", s.deleteDirectDomain)
 	mux.HandleFunc("POST /api/socks", s.addSOCKS)
-	mux.HandleFunc("GET /", s.index)
+	mux.HandleFunc("GET /", s.ui)
 	return mux
 }
 
@@ -349,9 +352,46 @@ func (s *Server) addSOCKS(w http.ResponseWriter, r *http.Request) {
 	s.write(w, map[string]any{"ok": true, "name": req.Name, "port": req.Port})
 }
 
-func (s *Server) index(w http.ResponseWriter, r *http.Request) {
+func (s *Server) ui(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Server.UIPath != "" && fileExists(filepath.Join(s.cfg.Server.UIPath, "index.html")) {
+		s.serveUI(w, r)
+		return
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(`<!doctype html><html><head><meta charset="utf-8"><title>Xray Stack</title></head><body><h1>Xray Stack</h1><p>Go control plane is running.</p><script>fetch('/api/config/summary').then(r=>r.json()).then(d=>document.body.appendChild(document.createElement('pre')).textContent=JSON.stringify(d,null,2))</script></body></html>`))
+}
+
+func (s *Server) serveUI(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "" || r.URL.Path == "/" {
+		http.ServeFile(w, r, filepath.Join(s.cfg.Server.UIPath, "index.html"))
+		return
+	}
+	rel := strings.TrimPrefix(filepath.Clean(r.URL.Path), string(filepath.Separator))
+	path := filepath.Join(s.cfg.Server.UIPath, rel)
+	root, err := filepath.Abs(s.cfg.Server.UIPath)
+	if err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	target, err := filepath.Abs(path)
+	if err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	if target != root && !strings.HasPrefix(target, root+string(filepath.Separator)) {
+		http.NotFound(w, r)
+		return
+	}
+	if st, err := os.Stat(target); err == nil && !st.IsDir() {
+		http.ServeFile(w, r, target)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.Server.UIPath, "index.html"))
+}
+
+func fileExists(path string) bool {
+	st, err := os.Stat(path)
+	return err == nil && !st.IsDir()
 }
 
 func (s *Server) xrayAPIServer() string {

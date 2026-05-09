@@ -22,6 +22,7 @@ type ServerConfig struct {
 	BackupDir           string `json:"backup_dir"`
 	UserUsagePath       string `json:"user_usage_path"`
 	SocksUsagePath      string `json:"socks_usage_path"`
+	UIPath              string `json:"ui_path,omitempty"`
 	BandwidthDevice     string `json:"bandwidth_device,omitempty"`
 	BandwidthConfigPath string `json:"bandwidth_config_path,omitempty"`
 }

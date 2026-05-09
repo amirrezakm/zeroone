@@ -5,7 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/xray-stackd -config /usr/local/etc/xray-stack/stack.json
+EnvironmentFile=-/etc/default/xray-stackd
+ExecStart=/usr/local/bin/xray-stackd -config /usr/local/etc/xray-stack/stack.json $XRAY_STACKD_FLAGS
 Restart=always
 RestartSec=5
 User=root
