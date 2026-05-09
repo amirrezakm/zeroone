@@ -20,19 +20,20 @@ type Check struct {
 	Up          bool   `json:"up"`
 	Healthy     bool   `json:"healthy"`
 	IPv4        string `json:"ipv4,omitempty"`
+	Probe       string `json:"probe,omitempty"`
 	LatencyMS   int64  `json:"latency_ms,omitempty"`
 	Error       string `json:"error,omitempty"`
 }
 
-func CheckAll(ctx context.Context, tunnels []stack.TunnelConfig, probeIP string, probePort int) []Check {
+func CheckAll(ctx context.Context, tunnels []stack.TunnelConfig, probes []stack.ProbeTarget) []Check {
 	out := make([]Check, 0, len(tunnels))
 	for _, t := range tunnels {
-		out = append(out, CheckOne(ctx, t, probeIP, probePort))
+		out = append(out, CheckOne(ctx, t, probes))
 	}
 	return out
 }
 
-func CheckOne(ctx context.Context, t stack.TunnelConfig, probeIP string, probePort int) Check {
+func CheckOne(ctx context.Context, t stack.TunnelConfig, probes []stack.ProbeTarget) Check {
 	c := Check{Name: t.Name, Type: t.Type, Interface: t.Interface, SystemdUnit: t.SystemdUnit, Priority: t.Priority}
 	ip, err := ifaceIPv4(ctx, t.Interface)
 	if err != nil {
@@ -40,20 +41,38 @@ func CheckOne(ctx context.Context, t stack.TunnelConfig, probeIP string, probePo
 		return c
 	}
 	c.Up, c.IPv4 = true, ip
-	start := time.Now()
-	d := net.Dialer{
-		Timeout:   3 * time.Second,
-		LocalAddr: &net.TCPAddr{IP: net.ParseIP(ip)},
-		Control:   bindControl(t.Interface),
+	if len(probes) == 0 {
+		probes = []stack.ProbeTarget{{Address: "1.1.1.1", Port: 443}}
 	}
-	conn, err := d.DialContext(ctx, "tcp", fmt.Sprintf("%s:%d", probeIP, probePort))
-	c.LatencyMS = time.Since(start).Milliseconds()
-	if err != nil {
-		c.Error = err.Error()
+	var errors []string
+	for _, probe := range probes {
+		if probe.Address == "" {
+			continue
+		}
+		if probe.Port == 0 {
+			probe.Port = 443
+		}
+		start := time.Now()
+		d := net.Dialer{
+			Timeout:   3 * time.Second,
+			LocalAddr: &net.TCPAddr{IP: net.ParseIP(ip)},
+			Control:   bindControl(t.Interface),
+		}
+		target := fmt.Sprintf("%s:%d", probe.Address, probe.Port)
+		conn, err := d.DialContext(ctx, "tcp", target)
+		latency := time.Since(start).Milliseconds()
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("%s: %v", target, err))
+			c.LatencyMS = latency
+			continue
+		}
+		_ = conn.Close()
+		c.Healthy = true
+		c.Probe = target
+		c.LatencyMS = latency
 		return c
 	}
-	_ = conn.Close()
-	c.Healthy = true
+	c.Error = strings.Join(errors, "; ")
 	return c
 }
 

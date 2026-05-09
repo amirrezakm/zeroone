@@ -16,7 +16,7 @@ type Summary = {
   tunnels: Array<{name:string; type:string; interface:string; priority:number}>;
   failover: {enabled:boolean; probe_ip:string; probe_port:number; cooldown_seconds:number};
 };
-type Health = { ok: boolean; generated_at: string; tunnels: Array<{name:string; interface:string; up:boolean; healthy:boolean; ipv4?:string; latency_ms?:number; error?:string}> };
+type Health = { ok: boolean; generated_at: string; tunnels: Array<{name:string; interface:string; up:boolean; healthy:boolean; ipv4?:string; probe?:string; latency_ms?:number; error?:string}> };
 type ApplyPlan = { ok: boolean; valid: boolean; config_path: string; allow_apply: boolean; error?: string };
 type Usage = { updated_at: number; users: Array<{email:string; uplink:number; downlink:number; total:number}> };
 type QuotaPlan = { generated_at: number; actions: Array<{email:string; used_bytes:number; quota_bytes:number; action:string; reason:string}> };
@@ -96,7 +96,7 @@ function renderStatus(summary: Summary, health: Health, plan: ApplyPlan, usage: 
     <section class="grid2">
       <section class="panel">
         <div class="panel-head"><h2>Tunnels</h2><span>${new Date(health.generated_at).toLocaleString()}</span></div>
-        <div class="tunnel-list">${health.tunnels.map(t => `<article class="tunnel"><div><h3>${esc(t.name)}</h3><p>${esc(t.interface)}${t.ipv4 ? ` · ${esc(t.ipv4)}` : ''}</p></div><div class="tunnel-state">${badge(t.up, t.up ? 'up' : 'down')}${badge(t.healthy, t.healthy ? `${t.latency_ms ?? 0}ms` : 'unhealthy')}</div>${t.error ? `<p class="error">${esc(t.error)}</p>` : ''}</article>`).join('')}</div>
+        <div class="tunnel-list">${health.tunnels.map(t => `<article class="tunnel"><div><h3>${esc(t.name)}</h3><p>${esc(t.interface)}${t.ipv4 ? ` · ${esc(t.ipv4)}` : ''}${t.probe ? ` · ${esc(t.probe)}` : ''}</p></div><div class="tunnel-state">${badge(t.up, t.up ? 'up' : 'down')}${badge(t.healthy, t.healthy ? `${t.latency_ms ?? 0}ms` : 'unhealthy')}</div>${t.error ? `<p class="error">${esc(t.error)}</p>` : ''}</article>`).join('')}</div>
       </section>
       <section class="panel">
         <div class="panel-head"><h2>Xray apply</h2>${badge(Boolean(plan.valid), plan.valid ? 'valid' : 'invalid')}</div>

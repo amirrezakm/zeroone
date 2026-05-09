@@ -113,6 +113,20 @@
     "enabled": true,
     "probe_ip": "172.64.155.209",
     "probe_port": 443,
+    "probes": [
+      {
+        "address": "172.64.155.209",
+        "port": 443
+      },
+      {
+        "address": "104.18.32.47",
+        "port": 443
+      },
+      {
+        "address": "162.159.140.245",
+        "port": 443
+      }
+    ],
     "interval_seconds": 15,
     "confirmations": 4,
     "cooldown_seconds": 300,

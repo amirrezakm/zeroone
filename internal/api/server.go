@@ -83,7 +83,7 @@ func (s *Server) save(w http.ResponseWriter) bool {
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
-	checks := tunnel.CheckAll(r.Context(), s.cfg.Tunnels, s.cfg.Failover.ProbeIP, s.cfg.Failover.ProbePort)
+	checks := tunnel.CheckAll(r.Context(), s.cfg.Tunnels, s.cfg.Failover.ProbeTargets())
 	s.write(w, map[string]any{"ok": true, "generated_at": time.Now().Format(time.RFC3339), "tunnels": checks})
 }
 
@@ -106,7 +106,7 @@ func (s *Server) userActivity(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) failoverDecision(w http.ResponseWriter, r *http.Request) {
-	checks := tunnel.CheckAll(r.Context(), s.cfg.Tunnels, s.cfg.Failover.ProbeIP, s.cfg.Failover.ProbePort)
+	checks := tunnel.CheckAll(r.Context(), s.cfg.Tunnels, s.cfg.Failover.ProbeTargets())
 	decision, _ := failover.Decide(s.cfg, failover.State{}, checks, time.Now())
 	s.write(w, map[string]any{"checks": checks, "decision": decision})
 }

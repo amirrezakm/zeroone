@@ -104,13 +104,45 @@ type TunnelConfig struct {
 }
 
 type FailoverConfig struct {
-	Enabled             bool   `json:"enabled"`
-	ProbeIP             string `json:"probe_ip"`
-	ProbePort           int    `json:"probe_port"`
-	IntervalSeconds     int    `json:"interval_seconds"`
-	Confirmations       int    `json:"confirmations"`
-	CooldownSeconds     int    `json:"cooldown_seconds"`
-	FallbackOutboundTag string `json:"fallback_outbound_tag"`
+	Enabled             bool          `json:"enabled"`
+	ProbeIP             string        `json:"probe_ip"`
+	ProbePort           int           `json:"probe_port"`
+	Probes              []ProbeTarget `json:"probes,omitempty"`
+	IntervalSeconds     int           `json:"interval_seconds"`
+	Confirmations       int           `json:"confirmations"`
+	CooldownSeconds     int           `json:"cooldown_seconds"`
+	FallbackOutboundTag string        `json:"fallback_outbound_tag"`
+}
+
+type ProbeTarget struct {
+	Address string `json:"address"`
+	Port    int    `json:"port"`
+}
+
+func (f FailoverConfig) ProbeTargets() []ProbeTarget {
+	if len(f.Probes) > 0 {
+		out := make([]ProbeTarget, 0, len(f.Probes))
+		for _, p := range f.Probes {
+			if p.Address == "" {
+				continue
+			}
+			if p.Port == 0 {
+				p.Port = 443
+			}
+			out = append(out, p)
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	port := f.ProbePort
+	if port == 0 {
+		port = 443
+	}
+	if f.ProbeIP == "" {
+		return []ProbeTarget{{Address: "1.1.1.1", Port: port}}
+	}
+	return []ProbeTarget{{Address: f.ProbeIP, Port: port}}
 }
 
 func Load(path string) (*Config, error) {

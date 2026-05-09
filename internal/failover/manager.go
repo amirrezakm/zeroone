@@ -44,7 +44,7 @@ func (m *Manager) Run(ctx context.Context) {
 }
 
 func (m *Manager) runOnce(ctx context.Context, cfg stack.Config) {
-	checks := tunnel.CheckAll(ctx, cfg.Tunnels, cfg.Failover.ProbeIP, cfg.Failover.ProbePort)
+	checks := tunnel.CheckAll(ctx, cfg.Tunnels, cfg.Failover.ProbeTargets())
 	decision, nextState := Decide(cfg, m.State, checks, time.Now())
 	m.setState(cfg.Server.FailoverStatePath, nextState)
 	if decision.Pending {

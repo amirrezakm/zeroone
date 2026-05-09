@@ -110,7 +110,20 @@ stack = {
         {'name': 'company', 'type': 'openvpn', 'interface': 'tun0', 'systemd_unit': 'openvpn@company', 'priority': 10},
         {'name': 'backup', 'type': 'openvpn', 'interface': 'tun1', 'systemd_unit': 'openvpn@client-tun1', 'priority': 20},
     ],
-    'failover': {'enabled': True, 'probe_ip': '172.64.155.209', 'probe_port': 443, 'interval_seconds': 15, 'confirmations': 4, 'cooldown_seconds': 300, 'fallback_outbound_tag': 'priority-proxy'},
+    'failover': {
+        'enabled': True,
+        'probe_ip': '172.64.155.209',
+        'probe_port': 443,
+        'probes': [
+            {'address': '172.64.155.209', 'port': 443},
+            {'address': '104.18.32.47', 'port': 443},
+            {'address': '162.159.140.245', 'port': 443},
+        ],
+        'interval_seconds': 15,
+        'confirmations': 4,
+        'cooldown_seconds': 300,
+        'fallback_outbound_tag': 'priority-proxy',
+    },
 }
 
 out = root / 'config/stack.local.json'
