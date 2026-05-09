@@ -43,6 +43,13 @@ function bytes(value: number) {
   return `${n.toFixed(i ? 1 : 0)} ${units[i]}`;
 }
 function linkText(links: Link[]) { return (links || []).map(l => `${l.name}\n${l.url}`).join('\n\n'); }
+function applyHint() {
+  if (latestSummary?.allow_apply) return 'Saved to stack config. Use Apply Xray to update the live service.';
+  return 'Saved to stack config. Live apply is locked on this daemon, so Xray will not change until apply mode is enabled.';
+}
+async function runAction(fn: () => Promise<void>) {
+  try { await fn(); } catch (error) { message(`Error: ${error instanceof Error ? error.message : String(error)}`); }
+}
 
 function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage, quota: QuotaPlan, bandwidth: BandwidthPlan, system: SystemInfo) {
   latestSummary = summary;
@@ -53,6 +60,7 @@ function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage,
       <div class="actions"><button id="sync-usage">Sync usage</button><button id="refresh">Refresh</button><button id="apply" ${summary.allow_apply ? '' : 'disabled'}>Apply Xray</button></div>
     </header>
     <main class="shell">
+      ${summary.allow_apply ? '' : '<section class="notice">Live apply is locked. Management changes are saved to stack config only until the daemon is started with apply mode.</section>'}
       <section class="metrics">
         <article><span>Users</span><strong>${summary.users}</strong></article>
         <article><span>SOCKS</span><strong>${summary.socks}</strong></article>
@@ -158,27 +166,27 @@ function renderSocks(summary: Summary) {
 
 function bindEvents() {
   document.querySelector('#refresh')?.addEventListener('click', load);
-  document.querySelector('#apply')?.addEventListener('click', applyXray);
-  document.querySelector('#sync-usage')?.addEventListener('click', syncUsage);
-  document.querySelector('#apply-quota')?.addEventListener('click', applyQuota);
-  document.querySelector('#apply-bandwidth')?.addEventListener('click', applyBandwidth);
+  document.querySelector('#apply')?.addEventListener('click', () => runAction(applyXray));
+  document.querySelector('#sync-usage')?.addEventListener('click', () => runAction(syncUsage));
+  document.querySelector('#apply-quota')?.addEventListener('click', () => runAction(applyQuota));
+  document.querySelector('#apply-bandwidth')?.addEventListener('click', () => runAction(applyBandwidth));
   document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab!)));
-  document.querySelector('#add-user')?.addEventListener('click', addUser);
-  document.querySelector('#add-direct')?.addEventListener('click', addDirect);
-  document.querySelector('#add-socks')?.addEventListener('click', addSocks);
-  document.querySelector('#copy-config')?.addEventListener('click', copyConfig);
+  document.querySelector('#add-user')?.addEventListener('click', () => runAction(addUser));
+  document.querySelector('#add-direct')?.addEventListener('click', () => runAction(addDirect));
+  document.querySelector('#add-socks')?.addEventListener('click', () => runAction(addSocks));
+  document.querySelector('#copy-config')?.addEventListener('click', () => runAction(copyConfig));
   document.querySelectorAll<HTMLButtonElement>('[data-view-user]').forEach(b => b.addEventListener('click', () => showUserConfig(b.dataset.viewUser!)));
-  document.querySelectorAll<HTMLButtonElement>('[data-activity-user]').forEach(b => b.addEventListener('click', () => showActivity(b.dataset.activityUser!)));
+  document.querySelectorAll<HTMLButtonElement>('[data-activity-user]').forEach(b => b.addEventListener('click', () => runAction(() => showActivity(b.dataset.activityUser!))));
   document.querySelectorAll<HTMLButtonElement>('[data-view-socks]').forEach(b => b.addEventListener('click', () => showSocksConfig(b.dataset.viewSocks!)));
-  document.querySelectorAll<HTMLButtonElement>('[data-edit-socks]').forEach(b => b.addEventListener('click', () => editSocks(b.dataset.editSocks!)));
-  document.querySelectorAll<HTMLButtonElement>('[data-delete-socks]').forEach(b => b.addEventListener('click', () => deleteSocks(b.dataset.deleteSocks!)));
-  document.querySelectorAll<HTMLButtonElement>('[data-edit-user]').forEach(b => b.addEventListener('click', () => editUser(b.dataset.editUser!)));
-  document.querySelectorAll<HTMLButtonElement>('[data-quota-user]').forEach(b => b.addEventListener('click', () => setQuota(b.dataset.quotaUser!)));
-  document.querySelectorAll<HTMLButtonElement>('[data-speed-user]').forEach(b => b.addEventListener('click', () => setSpeed(b.dataset.speedUser!)));
-  document.querySelectorAll<HTMLButtonElement>('[data-ban-user]').forEach(b => b.addEventListener('click', () => banUser(b.dataset.banUser!)));
-  document.querySelectorAll<HTMLButtonElement>('[data-unban-user]').forEach(b => b.addEventListener('click', () => unbanUser(b.dataset.unbanUser!)));
-  document.querySelectorAll<HTMLButtonElement>('[data-delete-user]').forEach(b => b.addEventListener('click', () => deleteUser(b.dataset.deleteUser!)));
-  document.querySelectorAll<HTMLButtonElement>('[data-delete-direct]').forEach(b => b.addEventListener('click', () => deleteDirect(b.dataset.deleteDirect!)));
+  document.querySelectorAll<HTMLButtonElement>('[data-edit-socks]').forEach(b => b.addEventListener('click', () => runAction(() => editSocks(b.dataset.editSocks!))));
+  document.querySelectorAll<HTMLButtonElement>('[data-delete-socks]').forEach(b => b.addEventListener('click', () => runAction(() => deleteSocks(b.dataset.deleteSocks!))));
+  document.querySelectorAll<HTMLButtonElement>('[data-edit-user]').forEach(b => b.addEventListener('click', () => runAction(() => editUser(b.dataset.editUser!))));
+  document.querySelectorAll<HTMLButtonElement>('[data-quota-user]').forEach(b => b.addEventListener('click', () => runAction(() => setQuota(b.dataset.quotaUser!))));
+  document.querySelectorAll<HTMLButtonElement>('[data-speed-user]').forEach(b => b.addEventListener('click', () => runAction(() => setSpeed(b.dataset.speedUser!))));
+  document.querySelectorAll<HTMLButtonElement>('[data-ban-user]').forEach(b => b.addEventListener('click', () => runAction(() => banUser(b.dataset.banUser!))));
+  document.querySelectorAll<HTMLButtonElement>('[data-unban-user]').forEach(b => b.addEventListener('click', () => runAction(() => unbanUser(b.dataset.unbanUser!))));
+  document.querySelectorAll<HTMLButtonElement>('[data-delete-user]').forEach(b => b.addEventListener('click', () => runAction(() => deleteUser(b.dataset.deleteUser!))));
+  document.querySelectorAll<HTMLButtonElement>('[data-delete-direct]').forEach(b => b.addEventListener('click', () => runAction(() => deleteDirect(b.dataset.deleteDirect!))));
 }
 
 function switchTab(name: string) {
@@ -199,7 +207,7 @@ async function addUser() {
   const email = prompt('Email/name for new VLESS user');
   if (!email) return;
   const res = await post('/api/users', {email: email.trim(), uuid: ''}) as {links:Link[]};
-  output(linkText(res.links || [])); message('User added in stack config. Apply Xray to make it live.');
+  output(linkText(res.links || [])); message(`User added. ${applyHint()}`);
   await load(); switchTab('users'); output(linkText(res.links || []));
 }
 async function editUser(email: string) {
@@ -208,12 +216,12 @@ async function editUser(email: string) {
   const uuid = prompt('UUID', u.uuid); if (!uuid) return;
   const enabled = confirm('Should this user be enabled? OK = enabled, Cancel = disabled');
   await put('/api/users', {old_email: u.email, email: nextEmail.trim(), uuid: uuid.trim(), enabled});
-  await load(); switchTab('users'); message('User updated in stack config. Apply Xray to make it live.');
+  await load(); switchTab('users'); message(`User updated. ${applyHint()}`);
 }
 async function deleteUser(email: string) {
   if (!confirm(`Delete ${email} from stack config?`)) return;
   await fetchJSON(`/api/users?email=${encodeURIComponent(email)}`, {method: 'DELETE'});
-  await load(); switchTab('users'); message('User deleted in stack config. Apply Xray to make it live.');
+  await load(); switchTab('users'); message(`User deleted. ${applyHint()}`);
 }
 async function setQuota(email: string) {
   const u = selectedUser(email); if (!u) return;
@@ -222,7 +230,7 @@ async function setQuota(email: string) {
   if (value === null) return;
   const gb = value.trim() ? Number(value) : 0;
   await post('/api/users/quota', {email, quota_bytes: Math.max(0, Math.round(gb * 1024 * 1024 * 1024))});
-  await load(); switchTab('users'); message('Quota updated.');
+  await load(); switchTab('users'); message(`Quota updated. ${applyHint()}`);
 }
 async function setSpeed(email: string) {
   const u = selectedUser(email); if (!u) return;
@@ -231,17 +239,17 @@ async function setSpeed(email: string) {
   const up = prompt('Upload Mbps. Empty = none.', u.upload_mbps ? String(u.upload_mbps) : '');
   if (up === null) return;
   await post('/api/users/bandwidth', {email, download_mbps: Number(down || 0), upload_mbps: Number(up || 0)});
-  await load(); switchTab('users'); showUserConfig(email); message('Speed limit updated. Use limited config link after applying Xray and bandwidth rules.');
+  await load(); switchTab('users'); showUserConfig(email); message(`Speed limit updated. Use the limited config link after Xray and bandwidth rules are applied. ${applyHint()}`);
 }
 async function banUser(email: string) {
   const minutes = Number(prompt(`Temporary ban duration for ${email} in minutes.`, '60') || 0);
   if (!minutes) return;
   await post('/api/users/ban', {email, minutes});
-  await load(); switchTab('users'); message('User banned in stack config. Apply Xray to make it live.');
+  await load(); switchTab('users'); message(`User banned. ${applyHint()}`);
 }
 async function unbanUser(email: string) {
   await post('/api/users/unban', {email});
-  await load(); switchTab('users'); message('User unbanned in stack config. Apply Xray to make it live.');
+  await load(); switchTab('users'); message(`User unbanned. ${applyHint()}`);
 }
 function showUserConfig(email: string) { const u = selectedUser(email); if (u) output(linkText(u.links || [])); }
 function showSocksConfig(username: string) { const s = selectedSocks(username); if (s) output(linkText(s.links || [])); }
@@ -258,14 +266,14 @@ async function addDirect() {
   const domain = prompt('Direct domain rule, e.g. domain:example.com or full:example.com');
   if (!domain) return;
   await post('/api/direct-domains', {domain: domain.trim()});
-  await load(); switchTab('routes');
+  await load(); switchTab('routes'); message(`Direct rule added. ${applyHint()}`);
 }
 async function addSocks() {
   const username = prompt('SOCKS username'); if (!username) return;
   const port = Number(prompt('Port', '1081') || 0); if (!port) return;
   const password = prompt('Password. Empty = auto-generate.', '') || '';
   await post('/api/socks', {name: username.trim(), listen: '0.0.0.0', port, username: username.trim(), password});
-  await load(); switchTab('socks');
+  await load(); switchTab('socks'); message(`SOCKS user added. ${applyHint()}`);
 }
 async function editSocks(username: string) {
   const s = selectedSocks(username); if (!s) return;
@@ -274,16 +282,16 @@ async function editSocks(username: string) {
   const nextPort = Number(prompt('Port', String(s.port)) || 0); if (!nextPort) return;
   const nextPass = prompt('Password. Empty = keep current.', '') || '';
   await put('/api/socks', {old_username: s.username, name: nextName.trim(), listen: s.listen || '0.0.0.0', port: nextPort, username: nextUser.trim(), password: nextPass});
-  await load(); switchTab('socks');
+  await load(); switchTab('socks'); message(`SOCKS user updated. ${applyHint()}`);
 }
 async function deleteSocks(username: string) {
   if (!confirm(`Delete SOCKS user ${username}?`)) return;
   await fetchJSON(`/api/socks?username=${encodeURIComponent(username)}`, {method: 'DELETE'});
-  await load(); switchTab('socks');
+  await load(); switchTab('socks'); message(`SOCKS user deleted. ${applyHint()}`);
 }
 async function deleteDirect(domain: string) {
   await fetchJSON(`/api/direct-domains?domain=${encodeURIComponent(domain)}`, {method: 'DELETE'});
-  await load(); switchTab('routes');
+  await load(); switchTab('routes'); message(`Direct rule deleted. ${applyHint()}`);
 }
 async function applyXray() { if (confirm('Apply generated Xray config and restart Xray?')) { await fetchJSON('/api/xray/apply', {method: 'POST'}); await load(); } }
 async function syncUsage() { await fetchJSON('/api/usage/sync', {method: 'POST'}); await load(); }

@@ -25,6 +25,7 @@ type ServerConfig struct {
 	UIPath              string `json:"ui_path,omitempty"`
 	BandwidthDevice     string `json:"bandwidth_device,omitempty"`
 	BandwidthConfigPath string `json:"bandwidth_config_path,omitempty"`
+	FailoverStatePath   string `json:"failover_state_path,omitempty"`
 }
 
 type XrayConfig struct {

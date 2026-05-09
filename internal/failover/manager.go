@@ -14,6 +14,9 @@ type Manager struct {
 	ConfigPath string
 	State      State
 	Xray       xray.Manager
+
+	stateLoaded bool
+	statePath   string
 }
 
 func (m *Manager) Run(ctx context.Context) {
@@ -26,6 +29,7 @@ func (m *Manager) Run(ctx context.Context) {
 			if cfg.Failover.IntervalSeconds > 0 {
 				interval = time.Duration(cfg.Failover.IntervalSeconds) * time.Second
 			}
+			m.loadState(cfg.Server.FailoverStatePath)
 			m.runOnce(ctx, *cfg)
 		}
 
@@ -42,7 +46,7 @@ func (m *Manager) Run(ctx context.Context) {
 func (m *Manager) runOnce(ctx context.Context, cfg stack.Config) {
 	checks := tunnel.CheckAll(ctx, cfg.Tunnels, cfg.Failover.ProbeIP, cfg.Failover.ProbePort)
 	decision, nextState := Decide(cfg, m.State, checks, time.Now())
-	m.State = nextState
+	m.setState(cfg.Server.FailoverStatePath, nextState)
 	if decision.Pending {
 		slog.Info("failover decision", "current", decision.Current, "desired", decision.Desired, "pending", decision.Pending, "confirmations", decision.ConfirmationCount, "reason", decision.Reason)
 		return
@@ -64,4 +68,31 @@ func (m *Manager) runOnce(ctx context.Context, cfg stack.Config) {
 		return
 	}
 	slog.Info("failover applied", "from", decision.Current, "to", decision.Effective, "changed", plan.Changed, "backup", plan.BackupPath)
+}
+
+func (m *Manager) loadState(path string) {
+	if path == "" {
+		path = DefaultStatePath
+	}
+	if m.stateLoaded && m.statePath == path {
+		return
+	}
+	st, err := LoadState(path)
+	if err != nil {
+		slog.Warn("failover state load failed", "path", path, "err", err)
+	} else {
+		m.State = st
+	}
+	m.statePath = path
+	m.stateLoaded = true
+}
+
+func (m *Manager) setState(path string, st State) {
+	if path == "" {
+		path = DefaultStatePath
+	}
+	m.State = st
+	if err := SaveState(path, st); err != nil {
+		slog.Warn("failover state save failed", "path", path, "err", err)
+	}
 }

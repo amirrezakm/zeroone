@@ -85,6 +85,7 @@ stack = {
         'ui_path': '/usr/local/share/xray-stack-ui',
         'bandwidth_device': 'eth0',
         'bandwidth_config_path': '/usr/local/etc/xray/bandwidth-limits.json',
+        'failover_state_path': '/var/lib/xray-stack/failover-state.json',
     },
     'xray': {
         'log_level': xray_config.get('log', {}).get('loglevel', 'warning'),

@@ -9,7 +9,8 @@
     "socks_usage_path": "/usr/local/etc/xray/socks-usage.json",
     "ui_path": "/usr/local/share/xray-stack-ui",
     "bandwidth_device": "eth0",
-    "bandwidth_config_path": "/usr/local/etc/xray/bandwidth-limits.json"
+    "bandwidth_config_path": "/usr/local/etc/xray/bandwidth-limits.json",
+    "failover_state_path": "/var/lib/xray-stack/failover-state.json"
   },
   "xray": {
     "log_level": "warning",

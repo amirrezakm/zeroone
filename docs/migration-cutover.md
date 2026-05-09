@@ -11,6 +11,7 @@ This is the intended production cutover path after the Go daemon reaches feature
 - The old shell VPN monitor is disabled; `xray-stackd -manage-vpn` owns tunnel service/IPv4 recovery.
 - `allow_apply` is disabled by default; enable it only during a controlled change window.
 - The apply pipeline was validated with a temporary user add/apply/delete/apply cycle, then locked again.
+- Failover confirmation/cooldown state is persisted in `/var/lib/xray-stack/failover-state.json`.
 
 ## Preflight
 
