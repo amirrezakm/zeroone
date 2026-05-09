@@ -2,29 +2,38 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/sakhtar/xray-stack-zeroone/internal/failover"
 	"github.com/sakhtar/xray-stack-zeroone/internal/stack"
 	"github.com/sakhtar/xray-stack-zeroone/internal/tunnel"
+	"github.com/sakhtar/xray-stack-zeroone/internal/usage"
 	"github.com/sakhtar/xray-stack-zeroone/internal/xray"
 )
 
 type Server struct {
 	cfg        stack.Config
 	configPath string
+	allowApply bool
 }
 
-func NewServer(cfg stack.Config, configPath string) http.Handler {
-	s := &Server{cfg: cfg, configPath: configPath}
+func NewServer(cfg stack.Config, configPath string, allowApply bool) http.Handler {
+	s := &Server{cfg: cfg, configPath: configPath, allowApply: allowApply}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.health)
 	mux.HandleFunc("GET /api/config/summary", s.summary)
 	mux.HandleFunc("GET /api/xray/generated", s.generatedXray)
+	mux.HandleFunc("GET /api/xray/apply-plan", s.xrayApplyPlan)
+	mux.HandleFunc("POST /api/xray/apply", s.xrayApply)
 	mux.HandleFunc("GET /api/failover/decision", s.failoverDecision)
+	mux.HandleFunc("GET /api/usage", s.usage)
+	mux.HandleFunc("POST /api/usage/reset", s.resetUsage)
 	mux.HandleFunc("POST /api/users", s.addUser)
 	mux.HandleFunc("DELETE /api/users", s.deleteUser)
+	mux.HandleFunc("POST /api/users/quota", s.setUserQuota)
+	mux.HandleFunc("POST /api/users/bandwidth", s.setUserBandwidth)
 	mux.HandleFunc("POST /api/direct-domains", s.addDirectDomain)
 	mux.HandleFunc("DELETE /api/direct-domains", s.deleteDirectDomain)
 	mux.HandleFunc("POST /api/socks", s.addSOCKS)
@@ -66,11 +75,74 @@ func (s *Server) failoverDecision(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) summary(w http.ResponseWriter, r *http.Request) {
-	s.write(w, map[string]any{"public_ip": s.cfg.Server.PublicIP, "users": len(s.cfg.Xray.Users), "socks": len(s.cfg.Xray.Inbounds.PublicSOCKS), "tunnels": s.cfg.Tunnels, "failover": s.cfg.Failover})
+	s.write(w, map[string]any{"public_ip": s.cfg.Server.PublicIP, "users": len(s.cfg.Xray.Users), "socks": len(s.cfg.Xray.Inbounds.PublicSOCKS), "tunnels": s.cfg.Tunnels, "failover": s.cfg.Failover, "allow_apply": s.allowApply})
 }
 
 func (s *Server) generatedXray(w http.ResponseWriter, r *http.Request) {
 	s.write(w, xray.Generate(s.cfg))
+}
+
+func (s *Server) xrayApplyPlan(w http.ResponseWriter, r *http.Request) {
+	m := xray.Manager{}
+	rendered, err := m.Render(s.cfg)
+	if err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	if err := m.Validate(r.Context(), s.cfg, rendered); err != nil {
+		s.fail(w, 400, err)
+		return
+	}
+	s.write(w, map[string]any{"ok": true, "valid": true, "config_path": s.cfg.Server.XrayConfigPath, "allow_apply": s.allowApply})
+}
+
+func (s *Server) xrayApply(w http.ResponseWriter, r *http.Request) {
+	if !s.allowApply {
+		s.fail(w, http.StatusForbidden, fmt.Errorf("apply is disabled; start with -allow-apply"))
+		return
+	}
+	plan, err := (xray.Manager{}).Apply(r.Context(), s.cfg)
+	if err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	s.write(w, map[string]any{"ok": true, "plan": plan})
+}
+
+func (s *Server) usage(w http.ResponseWriter, r *http.Request) {
+	state, err := usage.LoadUserState(s.cfg.Server.UserUsagePath)
+	if err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	s.write(w, map[string]any{"updated_at": state.UpdatedAt, "users": usage.UserViews(state)})
+}
+
+func (s *Server) resetUsage(w http.ResponseWriter, r *http.Request) {
+	if !s.allowApply {
+		s.fail(w, http.StatusForbidden, fmt.Errorf("usage reset is disabled; start with -allow-apply"))
+		return
+	}
+	known := make([]string, 0, len(s.cfg.Xray.Users))
+	for _, u := range s.cfg.Xray.Users {
+		known = append(known, u.Email)
+	}
+	raw, err := usage.QueryXrayUsers(r.Context(), nil, "127.0.0.1:10085")
+	if err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	state, err := usage.LoadUserState(s.cfg.Server.UserUsagePath)
+	if err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	state = usage.ResetUsers(state, raw, known, time.Now())
+	if err := usage.SaveUserState(s.cfg.Server.UserUsagePath, state); err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	s.write(w, map[string]any{"ok": true, "updated_at": state.UpdatedAt, "users": usage.UserViews(state)})
 }
 
 func (s *Server) addUser(w http.ResponseWriter, r *http.Request) {
@@ -96,6 +168,45 @@ func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	email := r.URL.Query().Get("email")
 	if err := s.cfg.DeleteUser(email); err != nil {
 		s.fail(w, 404, err)
+		return
+	}
+	if !s.save(w) {
+		return
+	}
+	s.write(w, map[string]any{"ok": true})
+}
+
+func (s *Server) setUserQuota(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email      string `json:"email"`
+		QuotaBytes int64  `json:"quota_bytes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.fail(w, 400, err)
+		return
+	}
+	if err := s.cfg.SetUserQuota(req.Email, req.QuotaBytes); err != nil {
+		s.fail(w, 400, err)
+		return
+	}
+	if !s.save(w) {
+		return
+	}
+	s.write(w, map[string]any{"ok": true})
+}
+
+func (s *Server) setUserBandwidth(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email        string `json:"email"`
+		DownloadMbps int    `json:"download_mbps"`
+		UploadMbps   int    `json:"upload_mbps"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.fail(w, 400, err)
+		return
+	}
+	if err := s.cfg.SetUserBandwidth(req.Email, req.DownloadMbps, req.UploadMbps); err != nil {
+		s.fail(w, 400, err)
 		return
 	}
 	if !s.save(w) {

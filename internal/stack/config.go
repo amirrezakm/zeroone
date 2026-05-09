@@ -20,6 +20,8 @@ type ServerConfig struct {
 	XrayConfigPath string `json:"xray_config_path"`
 	XrayBinary     string `json:"xray_binary"`
 	BackupDir      string `json:"backup_dir"`
+	UserUsagePath  string `json:"user_usage_path"`
+	SocksUsagePath string `json:"socks_usage_path"`
 }
 
 type XrayConfig struct {
@@ -49,9 +51,12 @@ type SOCKSInbound struct {
 }
 
 type User struct {
-	Email   string `json:"email"`
-	UUID    string `json:"uuid"`
-	Enabled bool   `json:"enabled"`
+	Email        string `json:"email"`
+	UUID         string `json:"uuid"`
+	Enabled      bool   `json:"enabled"`
+	QuotaBytes   int64  `json:"quota_bytes,omitempty"`
+	DownloadMbps int    `json:"download_mbps,omitempty"`
+	UploadMbps   int    `json:"upload_mbps,omitempty"`
 }
 
 type OutboundSet struct {

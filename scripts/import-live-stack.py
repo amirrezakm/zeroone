@@ -66,6 +66,8 @@ stack = {
         'xray_config_path': '/usr/local/etc/xray/config.json',
         'xray_binary': '/usr/local/bin/xray',
         'backup_dir': '/root/xray-audit-backups',
+        'user_usage_path': '/usr/local/etc/xray/user-usage.json',
+        'socks_usage_path': '/usr/local/etc/xray/socks-usage.json',
     },
     'xray': {
         'log_level': xray_config.get('log', {}).get('loglevel', 'warning'),

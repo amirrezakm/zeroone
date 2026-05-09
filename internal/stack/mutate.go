@@ -42,6 +42,30 @@ func (c *Config) SetUserEnabled(email string, enabled bool) error {
 	return fmt.Errorf("user %q not found", email)
 }
 
+func (c *Config) SetUserQuota(email string, quotaBytes int64) error {
+	for i := range c.Xray.Users {
+		if c.Xray.Users[i].Email == email {
+			c.Xray.Users[i].QuotaBytes = quotaBytes
+			return c.Validate()
+		}
+	}
+	return fmt.Errorf("user %q not found", email)
+}
+
+func (c *Config) SetUserBandwidth(email string, downloadMbps, uploadMbps int) error {
+	if downloadMbps < 0 || uploadMbps < 0 {
+		return fmt.Errorf("bandwidth must be non-negative")
+	}
+	for i := range c.Xray.Users {
+		if c.Xray.Users[i].Email == email {
+			c.Xray.Users[i].DownloadMbps = downloadMbps
+			c.Xray.Users[i].UploadMbps = uploadMbps
+			return c.Validate()
+		}
+	}
+	return fmt.Errorf("user %q not found", email)
+}
+
 func (c *Config) AddDirectDomain(domain string) error {
 	if domain == "" {
 		return fmt.Errorf("domain is required")

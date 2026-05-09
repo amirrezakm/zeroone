@@ -18,6 +18,7 @@ import (
 func main() {
 	configPath := flag.String("config", "config/stack.example.json", "stack config path")
 	printXray := flag.Bool("print-xray", false, "print generated xray config and exit")
+	allowApply := flag.Bool("allow-apply", false, "allow endpoints that modify live Xray/systemd state")
 	flag.Parse()
 
 	cfg, err := stack.Load(*configPath)
@@ -34,7 +35,7 @@ func main() {
 		return
 	}
 
-	h := api.NewServer(*cfg, *configPath)
+	h := api.NewServer(*cfg, *configPath, *allowApply)
 	srv := &http.Server{Addr: cfg.Server.AdminListen, Handler: h, ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		slog.Info("xray-stackd listening", "addr", cfg.Server.AdminListen)
