@@ -15,6 +15,13 @@ install -m 0644 systemd/xray-stackd.service /etc/systemd/system/xray-stackd.serv
 
 Use the imported live stack config as `config/stack.json`; do not deploy `stack.example.json` as-is.
 
+If the legacy Python panel is still bound to `127.0.0.1:8090`, run the Go daemon side-by-side on `127.0.0.1:8091` first:
+
+```bash
+jq '.server.admin_listen="127.0.0.1:8091"' config/stack.json > /tmp/stack-go-sidecar.json
+install -m 0600 /tmp/stack-go-sidecar.json /usr/local/etc/xray-stack/stack.json
+```
+
 ## Locked First Start
 
 ```bash
