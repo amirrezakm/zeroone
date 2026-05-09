@@ -1,0 +1,69 @@
+{
+  "server": {
+    "public_ip": "185.128.139.68",
+    "admin_listen": "127.0.0.1:8090",
+    "xray_config_path": "/usr/local/etc/xray/config.json",
+    "xray_binary": "/usr/local/bin/xray",
+    "backup_dir": "/root/xray-audit-backups"
+  },
+  "xray": {
+    "log_level": "warning",
+    "dns_servers": ["217.218.155.155"],
+    "dns_hosts": {"edge.velamkon.lol": ["172.64.155.209"]},
+    "api_port": 10085,
+    "inbounds": {
+      "vless_ws_port": 443,
+      "vless_xhttp_port": 3002,
+      "public_socks": [
+        {"name": "router", "listen": "0.0.0.0", "port": 1080, "username": "router", "password": "change-me"}
+      ]
+    },
+    "users": [
+      {"email": "example", "uuid": "00000000-0000-4000-8000-000000000000", "enabled": true}
+    ],
+    "outbounds": {
+      "proxy": {
+        "tag": "proxy",
+        "type": "vless-ws-tls",
+        "address": "172.64.155.209",
+        "port": 443,
+        "uuid": "00000000-0000-4000-8000-000000000000",
+        "server_name": "edge.velamkon.lol",
+        "host": "edge.velamkon.lol",
+        "path": "/edge",
+        "interface": "tun0",
+        "mux_concurrency": 16
+      },
+      "fallback": {
+        "tag": "priority-proxy",
+        "type": "vless-ws",
+        "address": "185.143.232.253",
+        "port": 80,
+        "uuid": "00000000-0000-4000-8000-000000000000",
+        "host": "dl3.farsdroid.site",
+        "path": "/"
+      }
+    },
+    "routing": {
+      "block_udp_443": true,
+      "direct_domains": ["full:chat.snappgrocery.net", "domain:chat.snappgrocery.net"],
+      "direct_ips": ["185.128.139.68/32"],
+      "block_domains": ["geosite:category-ir", "regexp:.*\\.ir$"],
+      "block_ips": ["geoip:ir"],
+      "ai_domains": ["domain:chatgpt.com", "domain:openai.com", "domain:claude.ai", "domain:cursor.com"]
+    }
+  },
+  "tunnels": [
+    {"name": "company", "type": "openvpn", "interface": "tun0", "systemd_unit": "openvpn@company", "priority": 10},
+    {"name": "backup", "type": "openvpn", "interface": "tun1", "systemd_unit": "openvpn@client-tun1", "priority": 20}
+  ],
+  "failover": {
+    "enabled": true,
+    "probe_ip": "172.64.155.209",
+    "probe_port": 443,
+    "interval_seconds": 15,
+    "confirmations": 4,
+    "cooldown_seconds": 300,
+    "fallback_outbound_tag": "priority-proxy"
+  }
+}

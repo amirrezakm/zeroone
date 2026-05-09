@@ -37,3 +37,10 @@ rootfs/etc/ssh/
 rootfs/etc/ufw/
 rootfs/etc/sysctl.d/
 rootfs/etc/security/
+
+# Local live source-of-truth generated from server snapshot
+config/stack.local.json
+
+# UI build/runtime artifacts
+web/app/node_modules/
+web/app/dist/
