@@ -22,6 +22,8 @@ type Usage = { updated_at: number; users: Array<{email:string; uplink:number; do
 type QuotaPlan = { generated_at: number; actions: Array<{email:string; used_bytes:number; quota_bytes:number; action:string; reason:string}> };
 type BandwidthPlan = { device: string; limits: Array<{email:string; port:number; download_mbps:number; upload_mbps:number}>; needs_apply: boolean; apply_locked: boolean; tc_commands: string[] };
 type SystemInfo = { cpu:{percent:number; detail:string}; ram:{percent:number; detail:string; used_bytes:number; total_bytes:number}; tunnels:Array<{name:string; rx_bytes:number; tx_bytes:number}>; updated_at:number };
+type FailoverMode = { outbound_tag:string; interface?:string };
+type FailoverDecision = { decision:{current:FailoverMode; desired:FailoverMode; effective:FailoverMode; pending:boolean; confirmation_count:number; reason:string} };
 
 const apiBase = import.meta.env.VITE_API_BASE || '';
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -51,7 +53,7 @@ async function runAction(fn: () => Promise<void>) {
   try { await fn(); } catch (error) { message(`Error: ${error instanceof Error ? error.message : String(error)}`); }
 }
 
-function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage, quota: QuotaPlan, bandwidth: BandwidthPlan, system: SystemInfo) {
+function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage, quota: QuotaPlan, bandwidth: BandwidthPlan, system: SystemInfo, failover: FailoverDecision) {
   latestSummary = summary;
   const topUsers = [...usage.users].sort((a,b) => b.total - a.total).slice(0, 6);
   app.innerHTML = `
@@ -75,7 +77,7 @@ function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage,
         <button data-tab="routes">Routes</button>
         <button data-tab="socks">SOCKS</button>
       </section>
-      <section id="tab-status" class="tab-panel">${renderStatus(summary, health, plan, usage, quota, bandwidth, system, topUsers)}</section>
+      <section id="tab-status" class="tab-panel">${renderStatus(summary, health, plan, usage, quota, bandwidth, system, failover, topUsers)}</section>
       <section id="tab-users" class="tab-panel hidden">${renderUsers(summary)}</section>
       <section id="tab-routes" class="tab-panel hidden">${renderRoutes(summary)}</section>
       <section id="tab-socks" class="tab-panel hidden">${renderSocks(summary)}</section>
@@ -83,7 +85,8 @@ function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage,
   bindEvents();
 }
 
-function renderStatus(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage, quota: QuotaPlan, bandwidth: BandwidthPlan, system: SystemInfo, topUsers: Usage['users']) {
+function renderStatus(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage, quota: QuotaPlan, bandwidth: BandwidthPlan, system: SystemInfo, failover: FailoverDecision, topUsers: Usage['users']) {
+  const decision = failover.decision;
   return `
     <section class="metrics">
       <article><span>CPU</span><strong>${system.cpu.percent.toFixed(0)}%</strong><small>${esc(system.cpu.detail)}</small></article>
@@ -103,6 +106,15 @@ function renderStatus(summary: Summary, health: Health, plan: ApplyPlan, usage: 
       </section>
     </section>
     <section class="panel">
+      <div class="panel-head"><h2>Failover route</h2>${badge(!decision.pending, decision.pending ? `pending ${decision.confirmation_count}` : 'stable')}</div>
+      <div class="route-grid">
+        <article><span>Current</span><strong>${esc(formatMode(decision.current))}</strong></article>
+        <article><span>Desired</span><strong>${esc(formatMode(decision.desired))}</strong></article>
+        <article><span>Effective</span><strong>${esc(formatMode(decision.effective))}</strong></article>
+      </div>
+      <p class="muted">${esc(decision.reason)}</p>
+    </section>
+    <section class="panel">
       <div class="panel-head"><h2>Usage</h2><span>${usage.updated_at ? new Date(usage.updated_at * 1000).toLocaleString() : 'not synced'}</span></div>
       <div class="usage-list">${topUsers.map(u => `<article><strong>${esc(u.email)}</strong><span>${bytes(u.total)}</span><small>up ${bytes(u.uplink)} · down ${bytes(u.downlink)}</small></article>`).join('') || '<p class="muted">No usage yet.</p>'}</div>
     </section>
@@ -117,6 +129,11 @@ function renderStatus(summary: Summary, health: Health, plan: ApplyPlan, usage: 
         <button id="apply-bandwidth" ${summary.allow_apply ? '' : 'disabled'}>Apply bandwidth rules</button>
       </section>
     </section>`;
+}
+
+function formatMode(mode: FailoverMode) {
+  if (!mode) return '-';
+  return mode.interface ? `${mode.outbound_tag}:${mode.interface}` : mode.outbound_tag;
 }
 
 function renderUsers(summary: Summary) {
@@ -301,7 +318,7 @@ async function applyBandwidth() { if (confirm('Apply nft/tc bandwidth rules on t
 async function load() {
   app.innerHTML = '<div class="loading">Loading...</div>';
   try {
-    const [summary, health, plan, usage, quota, bandwidth, system] = await Promise.all([
+    const [summary, health, plan, usage, quota, bandwidth, system, failover] = await Promise.all([
       fetchJSON<Summary>('/api/config/summary'),
       fetchJSON<Health>('/api/health'),
       fetchJSON<ApplyPlan>('/api/xray/apply-plan').catch(error => ({ok:false, valid:false, config_path:'', allow_apply:false, error:String(error)})),
@@ -309,8 +326,9 @@ async function load() {
       fetchJSON<QuotaPlan>('/api/quota/plan').catch(() => ({generated_at:0, actions:[]})),
       fetchJSON<BandwidthPlan>('/api/bandwidth/plan').catch(() => ({device:'eth0', limits:[], needs_apply:false, apply_locked:true, tc_commands:[]})),
       fetchJSON<SystemInfo>('/api/system').catch(() => ({cpu:{percent:0, detail:'unavailable'}, ram:{percent:0, detail:'unavailable', used_bytes:0, total_bytes:0}, tunnels:[], updated_at:0})),
+      fetchJSON<FailoverDecision>('/api/failover/decision').catch(() => ({decision:{current:{outbound_tag:'unknown'}, desired:{outbound_tag:'unknown'}, effective:{outbound_tag:'unknown'}, pending:false, confirmation_count:0, reason:'unavailable'}})),
     ]);
-    render(summary, health, plan, usage, quota, bandwidth, system);
+    render(summary, health, plan, usage, quota, bandwidth, system, failover);
   } catch (error) { app.innerHTML = `<div class="error-page"><h1>Load failed</h1><pre>${esc(String(error))}</pre></div>`; }
 }
 void load();

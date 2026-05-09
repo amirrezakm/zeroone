@@ -43,6 +43,10 @@ button.danger { color: var(--bad); }
 .usage-list article { display: grid; gap: 4px; border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
 .usage-list span { font-weight: 800; font-size: 18px; }
 .usage-list small { color: var(--muted); }
+.route-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.route-grid article { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 6px; }
+.route-grid span { color: var(--muted); font-size: 13px; }
+.route-grid strong { overflow-wrap: anywhere; }
 .table { display: grid; gap: 8px; margin-bottom: 12px; }
 .table article { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
 .table span, .table small { color: var(--muted); font-size: 13px; }
