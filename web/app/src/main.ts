@@ -72,6 +72,7 @@ function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage,
         <section class="panel">
           <div class="panel-head"><h2>Bandwidth limits</h2><span>${bandwidth.device || 'eth0'}</span></div>
           ${bandwidth.limits.length ? `<div class="table">${bandwidth.limits.map(l => `<article><strong>${l.email}</strong><span>port ${l.port}</span><small>down ${l.download_mbps || 'none'} Mbps · up ${l.upload_mbps || 'none'} Mbps</small></article>`).join('')}</div>` : '<p class="muted">No per-user speed limits configured.</p>'}
+          <button id="apply-bandwidth" ${summary.allow_apply ? '' : 'disabled'}>Apply bandwidth rules</button>
         </section>
       </section>
     </main>`;
@@ -79,6 +80,7 @@ function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage,
   document.querySelector('#apply')?.addEventListener('click', applyXray);
   document.querySelector('#sync-usage')?.addEventListener('click', syncUsage);
   document.querySelector('#apply-quota')?.addEventListener('click', applyQuota);
+  document.querySelector('#apply-bandwidth')?.addEventListener('click', applyBandwidth);
 }
 
 async function applyXray() {
@@ -95,6 +97,12 @@ async function syncUsage() {
 async function applyQuota() {
   if (!confirm('Disable users that are over quota and apply Xray config?')) return;
   await fetchJSON('/api/quota/apply', {method: 'POST'});
+  await load();
+}
+
+async function applyBandwidth() {
+  if (!confirm('Apply nft/tc bandwidth rules on the server?')) return;
+  await fetchJSON('/api/bandwidth/apply', {method: 'POST'});
   await load();
 }
 

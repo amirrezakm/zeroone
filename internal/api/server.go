@@ -36,6 +36,7 @@ func NewServer(cfg stack.Config, configPath string, allowApply bool) http.Handle
 	mux.HandleFunc("GET /api/quota/plan", s.quotaPlan)
 	mux.HandleFunc("POST /api/quota/apply", s.quotaApply)
 	mux.HandleFunc("GET /api/bandwidth/plan", s.bandwidthPlan)
+	mux.HandleFunc("POST /api/bandwidth/apply", s.bandwidthApply)
 	mux.HandleFunc("POST /api/users", s.addUser)
 	mux.HandleFunc("DELETE /api/users", s.deleteUser)
 	mux.HandleFunc("POST /api/users/quota", s.setUserQuota)
@@ -210,6 +211,19 @@ func (s *Server) quotaApply(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) bandwidthPlan(w http.ResponseWriter, r *http.Request) {
 	s.write(w, bandwidth.BuildPlan(s.cfg, s.allowApply))
+}
+
+func (s *Server) bandwidthApply(w http.ResponseWriter, r *http.Request) {
+	if !s.allowApply {
+		s.fail(w, http.StatusForbidden, fmt.Errorf("bandwidth apply is disabled; start with -allow-apply"))
+		return
+	}
+	result, err := (bandwidth.Manager{}).Apply(r.Context(), s.cfg)
+	if err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	s.write(w, map[string]any{"ok": true, "result": result})
 }
 
 func (s *Server) addUser(w http.ResponseWriter, r *http.Request) {
