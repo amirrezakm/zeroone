@@ -1,6 +1,14 @@
-# Migration Cutover Draft
+# Migration Cutover
 
 This is the intended production cutover path after the Go daemon reaches feature parity.
+
+## Current Production State
+
+- `xray-stackd` is deployed side by side on `127.0.0.1:8091`.
+- nginx routes both `/monitor/` and `/monitor-go/` to the Go daemon.
+- The old Python monitor is still running on `127.0.0.1:8090` for rollback only.
+- `allow_apply` is disabled by default; enable it only during a controlled change window.
+- The apply pipeline was validated with a temporary user add/apply/delete/apply cycle, then locked again.
 
 ## Preflight
 
@@ -22,11 +30,12 @@ This is the intended production cutover path after the Go daemon reaches feature
 
 Allowed downtime: up to 10 minutes.
 
-1. Stop old mutation services: `xray-stack-monitor`, `xray-ai-route-failover`, `vpn-monitor`.
-2. Apply generated Xray config through `xray-stackd` apply pipeline.
-3. Restart Xray and verify inbound ports `443`, `1080`, `8088`, monitor route.
-4. Switch nginx monitor upstream to the Go daemon.
-5. Enable `xray-stackd` and watch logs for 5 minutes.
+1. Enable apply mode with `XRAY_STACKD_FLAGS=-allow-apply` and restart `xray-stackd`.
+2. Apply generated Xray config through `xray-stackd` and verify Xray is active.
+3. Verify inbound ports `443`, `1080`, and nginx port `80`.
+4. Stop old mutation services only after the Go daemon owns the equivalent behavior.
+5. Disable apply mode again unless active panel-side Xray mutation is intentionally needed.
+6. Watch `xray`, `xray-stackd`, nginx, and tunnel health logs for 5 minutes.
 
 ## Rollback
 

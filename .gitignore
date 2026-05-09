@@ -31,6 +31,7 @@ rootfs/usr/local/bin/xray
 rootfs/var/www/sub/sub.live.py
 
 # Full server config snapshots kept local-only until sanitized/reviewed
+server-snapshots/
 rootfs/etc/default/
 rootfs/etc/fail2ban/
 rootfs/etc/ssh/
