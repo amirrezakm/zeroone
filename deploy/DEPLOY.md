@@ -37,6 +37,16 @@ curl -fsS http://127.0.0.1:8090/api/xray/apply-plan | jq .
 
 In locked mode, the panel can inspect config, usage, tunnels, quota plans, and bandwidth plans. It cannot modify live Xray or nft/tc state.
 
+## Side-by-Side Nginx Exposure
+
+Keep the legacy panel on `/monitor/` until the Go panel has been verified. The staged route used on ZeroOne is:
+
+- `/monitor-go/` -> `http://127.0.0.1:8091/`
+- `/api/` -> `http://127.0.0.1:8091/api/`
+- `/assets/` -> `http://127.0.0.1:8091/assets/`
+
+All three locations must keep the same Basic Auth file as `/monitor/`. Run `nginx -t` before reload.
+
 ## Enable Writes
 
 Only after the generated config validates and the UI looks correct:
