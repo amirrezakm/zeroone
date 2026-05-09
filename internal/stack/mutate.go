@@ -42,6 +42,27 @@ func (c *Config) SetUserEnabled(email string, enabled bool) error {
 	return fmt.Errorf("user %q not found", email)
 }
 
+func (c *Config) UpdateUser(oldEmail, email, uuid string, enabled bool) error {
+	if oldEmail == "" || email == "" || uuid == "" {
+		return fmt.Errorf("old_email, email, and uuid are required")
+	}
+	for i := range c.Xray.Users {
+		if c.Xray.Users[i].Email != oldEmail {
+			continue
+		}
+		for j, other := range c.Xray.Users {
+			if j != i && other.Email == email {
+				return fmt.Errorf("user %q already exists", email)
+			}
+		}
+		c.Xray.Users[i].Email = email
+		c.Xray.Users[i].UUID = uuid
+		c.Xray.Users[i].Enabled = enabled
+		return c.Validate()
+	}
+	return fmt.Errorf("user %q not found", oldEmail)
+}
+
 func (c *Config) SetUserQuota(email string, quotaBytes int64) error {
 	for i := range c.Xray.Users {
 		if c.Xray.Users[i].Email == email {

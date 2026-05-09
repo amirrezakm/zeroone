@@ -12,6 +12,7 @@ import (
 	"github.com/sakhtar/xray-stack-zeroone/internal/bandwidth"
 	"github.com/sakhtar/xray-stack-zeroone/internal/enforce"
 	"github.com/sakhtar/xray-stack-zeroone/internal/failover"
+	"github.com/sakhtar/xray-stack-zeroone/internal/links"
 	"github.com/sakhtar/xray-stack-zeroone/internal/stack"
 	"github.com/sakhtar/xray-stack-zeroone/internal/tunnel"
 	"github.com/sakhtar/xray-stack-zeroone/internal/usage"
@@ -41,6 +42,7 @@ func NewServer(cfg stack.Config, configPath string, allowApply bool) http.Handle
 	mux.HandleFunc("GET /api/bandwidth/plan", s.bandwidthPlan)
 	mux.HandleFunc("POST /api/bandwidth/apply", s.bandwidthApply)
 	mux.HandleFunc("POST /api/users", s.addUser)
+	mux.HandleFunc("PUT /api/users", s.updateUser)
 	mux.HandleFunc("DELETE /api/users", s.deleteUser)
 	mux.HandleFunc("POST /api/users/quota", s.setUserQuota)
 	mux.HandleFunc("POST /api/users/bandwidth", s.setUserBandwidth)
@@ -85,7 +87,43 @@ func (s *Server) failoverDecision(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) summary(w http.ResponseWriter, r *http.Request) {
-	s.write(w, map[string]any{"public_ip": s.cfg.Server.PublicIP, "users": len(s.cfg.Xray.Users), "socks": len(s.cfg.Xray.Inbounds.PublicSOCKS), "tunnels": s.cfg.Tunnels, "failover": s.cfg.Failover, "allow_apply": s.allowApply})
+	userViews := make([]map[string]any, 0, len(s.cfg.Xray.Users))
+	for _, u := range s.cfg.Xray.Users {
+		userViews = append(userViews, map[string]any{
+			"email":          u.Email,
+			"uuid":           u.UUID,
+			"enabled":        u.Enabled,
+			"quota_bytes":    u.QuotaBytes,
+			"download_mbps":  u.DownloadMbps,
+			"upload_mbps":    u.UploadMbps,
+			"bandwidth_port": u.BandwidthPort,
+			"links":          links.VLESS(s.cfg, u),
+		})
+	}
+	socksViews := make([]map[string]any, 0, len(s.cfg.Xray.Inbounds.PublicSOCKS))
+	for _, socks := range s.cfg.Xray.Inbounds.PublicSOCKS {
+		socksViews = append(socksViews, map[string]any{
+			"name":     socks.Name,
+			"listen":   socks.Listen,
+			"port":     socks.Port,
+			"username": socks.Username,
+			"password": socks.Password,
+			"links":    links.SOCKS(s.cfg, socks),
+		})
+	}
+	s.write(w, map[string]any{
+		"public_ip":      s.cfg.Server.PublicIP,
+		"users":          len(s.cfg.Xray.Users),
+		"socks":          len(s.cfg.Xray.Inbounds.PublicSOCKS),
+		"user_items":     userViews,
+		"socks_items":    socksViews,
+		"direct_domains": s.cfg.Xray.Routing.DirectDomains,
+		"block_domains":  s.cfg.Xray.Routing.BlockDomains,
+		"manual_blocks":  s.cfg.Xray.Routing.ManualBlockDomains,
+		"tunnels":        s.cfg.Tunnels,
+		"failover":       s.cfg.Failover,
+		"allow_apply":    s.allowApply,
+	})
 }
 
 func (s *Server) generatedXray(w http.ResponseWriter, r *http.Request) {
@@ -245,7 +283,35 @@ func (s *Server) addUser(w http.ResponseWriter, r *http.Request) {
 	if !s.save(w) {
 		return
 	}
-	s.write(w, map[string]any{"ok": true, "email": req.Email})
+	var created stack.User
+	for _, u := range s.cfg.Xray.Users {
+		if u.Email == req.Email {
+			created = u
+			break
+		}
+	}
+	s.write(w, map[string]any{"ok": true, "user": created, "links": links.VLESS(s.cfg, created)})
+}
+
+func (s *Server) updateUser(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		OldEmail string `json:"old_email"`
+		Email    string `json:"email"`
+		UUID     string `json:"uuid"`
+		Enabled  bool   `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.fail(w, 400, err)
+		return
+	}
+	if err := s.cfg.UpdateUser(req.OldEmail, req.Email, req.UUID, req.Enabled); err != nil {
+		s.fail(w, 400, err)
+		return
+	}
+	if !s.save(w) {
+		return
+	}
+	s.write(w, map[string]any{"ok": true})
 }
 
 func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {

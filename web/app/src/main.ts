@@ -1,14 +1,21 @@
 import './styles.css';
 
+type Link = { name: string; url: string };
+type UserItem = { email:string; uuid:string; enabled:boolean; quota_bytes:number; download_mbps:number; upload_mbps:number; bandwidth_port:number; links:Link[] };
+type SocksItem = { name:string; listen:string; port:number; username:string; password:string; links:Link[] };
 type Summary = {
   public_ip: string;
   users: number;
   socks: number;
   allow_apply: boolean;
+  user_items: UserItem[];
+  socks_items: SocksItem[];
+  direct_domains: string[];
+  block_domains: string[];
+  manual_blocks: string[];
   tunnels: Array<{name:string; type:string; interface:string; priority:number}>;
   failover: {enabled:boolean; probe_ip:string; probe_port:number; cooldown_seconds:number};
 };
-
 type Health = { ok: boolean; generated_at: string; tunnels: Array<{name:string; interface:string; up:boolean; healthy:boolean; ipv4?:string; latency_ms?:number; error?:string}> };
 type ApplyPlan = { ok: boolean; valid: boolean; config_path: string; allow_apply: boolean; error?: string };
 type Usage = { updated_at: number; users: Array<{email:string; uplink:number; downlink:number; total:number}> };
@@ -17,6 +24,7 @@ type BandwidthPlan = { device: string; limits: Array<{email:string; port:number;
 
 const apiBase = import.meta.env.VITE_API_BASE || '';
 const app = document.querySelector<HTMLDivElement>('#app')!;
+let latestSummary: Summary | undefined;
 
 async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBase}${path}`, {cache: 'no-store', ...init});
@@ -24,15 +32,19 @@ async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) throw new Error(body.error || `${response.status} ${response.statusText}`);
   return body;
 }
-
+function post(path: string, body: unknown) { return fetchJSON(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}); }
+function put(path: string, body: unknown) { return fetchJSON(path, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}); }
 function badge(ok: boolean, label: string) { return `<span class="badge ${ok ? 'ok' : 'bad'}"><span></span>${label}</span>`; }
+function esc(value: unknown) { return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!)); }
 function bytes(value: number) {
   const units = ['B','KB','MB','GB','TB']; let n = value || 0; let i = 0;
   while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
   return `${n.toFixed(i ? 1 : 0)} ${units[i]}`;
 }
+function linkText(links: Link[]) { return (links || []).map(l => `${l.name}\n${l.url}`).join('\n\n'); }
 
 function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage, quota: QuotaPlan, bandwidth: BandwidthPlan) {
+  latestSummary = summary;
   const topUsers = [...usage.users].sort((a,b) => b.total - a.total).slice(0, 6);
   app.innerHTML = `
     <header class="shell-header">
@@ -48,63 +60,181 @@ function render(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage,
         <article><span>Quota actions</span><strong>${quota.actions.length}</strong></article>
         <article><span>Speed limits</span><strong>${bandwidth.limits.length}</strong></article>
       </section>
-      <section class="grid2">
-        <section class="panel">
-          <div class="panel-head"><h2>Tunnels</h2><span>${new Date(health.generated_at).toLocaleString()}</span></div>
-          <div class="tunnel-list">${health.tunnels.map(t => `<article class="tunnel"><div><h3>${t.name}</h3><p>${t.interface}${t.ipv4 ? ` · ${t.ipv4}` : ''}</p></div><div class="tunnel-state">${badge(t.up, t.up ? 'up' : 'down')}${badge(t.healthy, t.healthy ? `${t.latency_ms ?? 0}ms` : 'unhealthy')}</div>${t.error ? `<p class="error">${t.error}</p>` : ''}</article>`).join('')}</div>
-        </section>
-        <section class="panel">
-          <div class="panel-head"><h2>Xray apply</h2>${badge(Boolean(plan.valid), plan.valid ? 'valid' : 'invalid')}</div>
-          <p class="muted">${plan.config_path || '-'}</p>
-          <p class="muted">${plan.allow_apply ? 'Live apply is enabled for this daemon.' : 'Live apply is locked. Start daemon with -allow-apply to enable writes.'}</p>
-          ${plan.error ? `<p class="error">${plan.error}</p>` : ''}
-        </section>
+      <section class="tabs">
+        <button data-tab="status" class="active">Status</button>
+        <button data-tab="users">Users</button>
+        <button data-tab="routes">Routes</button>
+        <button data-tab="socks">SOCKS</button>
+      </section>
+      <section id="tab-status" class="tab-panel">${renderStatus(summary, health, plan, usage, quota, bandwidth, topUsers)}</section>
+      <section id="tab-users" class="tab-panel hidden">${renderUsers(summary)}</section>
+      <section id="tab-routes" class="tab-panel hidden">${renderRoutes(summary)}</section>
+      <section id="tab-socks" class="tab-panel hidden">${renderSocks(summary)}</section>
+    </main>`;
+  bindEvents();
+}
+
+function renderStatus(summary: Summary, health: Health, plan: ApplyPlan, usage: Usage, quota: QuotaPlan, bandwidth: BandwidthPlan, topUsers: Usage['users']) {
+  return `
+    <section class="grid2">
+      <section class="panel">
+        <div class="panel-head"><h2>Tunnels</h2><span>${new Date(health.generated_at).toLocaleString()}</span></div>
+        <div class="tunnel-list">${health.tunnels.map(t => `<article class="tunnel"><div><h3>${esc(t.name)}</h3><p>${esc(t.interface)}${t.ipv4 ? ` · ${esc(t.ipv4)}` : ''}</p></div><div class="tunnel-state">${badge(t.up, t.up ? 'up' : 'down')}${badge(t.healthy, t.healthy ? `${t.latency_ms ?? 0}ms` : 'unhealthy')}</div>${t.error ? `<p class="error">${esc(t.error)}</p>` : ''}</article>`).join('')}</div>
       </section>
       <section class="panel">
-        <div class="panel-head"><h2>Usage</h2><span>${usage.updated_at ? new Date(usage.updated_at * 1000).toLocaleString() : 'not synced'}</span></div>
-        <div class="usage-list">${topUsers.map(u => `<article><strong>${u.email}</strong><span>${bytes(u.total)}</span><small>up ${bytes(u.uplink)} · down ${bytes(u.downlink)}</small></article>`).join('') || '<p class="muted">No usage yet.</p>'}</div>
+        <div class="panel-head"><h2>Xray apply</h2>${badge(Boolean(plan.valid), plan.valid ? 'valid' : 'invalid')}</div>
+        <p class="muted">${esc(plan.config_path || '-')}</p>
+        <p class="muted">${plan.allow_apply ? 'Live apply is enabled for this daemon.' : 'Live apply is locked. Start daemon with -allow-apply to enable writes.'}</p>
+        ${plan.error ? `<p class="error">${esc(plan.error)}</p>` : ''}
       </section>
-      <section class="grid2">
-        <section class="panel">
-          <div class="panel-head"><h2>Quota enforcement</h2>${badge(quota.actions.length === 0, quota.actions.length ? `${quota.actions.length} pending` : 'clear')}</div>
-          ${quota.actions.length ? `<div class="table">${quota.actions.map(a => `<article><strong>${a.email}</strong><span>${bytes(a.used_bytes)} / ${bytes(a.quota_bytes)}</span><small>${a.action}</small></article>`).join('')}</div><button id="apply-quota" ${summary.allow_apply ? '' : 'disabled'}>Apply quota actions</button>` : '<p class="muted">No enabled user is over quota.</p>'}
-        </section>
-        <section class="panel">
-          <div class="panel-head"><h2>Bandwidth limits</h2><span>${bandwidth.device || 'eth0'}</span></div>
-          ${bandwidth.limits.length ? `<div class="table">${bandwidth.limits.map(l => `<article><strong>${l.email}</strong><span>port ${l.port}</span><small>down ${l.download_mbps || 'none'} Mbps · up ${l.upload_mbps || 'none'} Mbps</small></article>`).join('')}</div>` : '<p class="muted">No per-user speed limits configured.</p>'}
-          <button id="apply-bandwidth" ${summary.allow_apply ? '' : 'disabled'}>Apply bandwidth rules</button>
-        </section>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Usage</h2><span>${usage.updated_at ? new Date(usage.updated_at * 1000).toLocaleString() : 'not synced'}</span></div>
+      <div class="usage-list">${topUsers.map(u => `<article><strong>${esc(u.email)}</strong><span>${bytes(u.total)}</span><small>up ${bytes(u.uplink)} · down ${bytes(u.downlink)}</small></article>`).join('') || '<p class="muted">No usage yet.</p>'}</div>
+    </section>
+    <section class="grid2">
+      <section class="panel">
+        <div class="panel-head"><h2>Quota enforcement</h2>${badge(quota.actions.length === 0, quota.actions.length ? `${quota.actions.length} pending` : 'clear')}</div>
+        ${quota.actions.length ? `<div class="table">${quota.actions.map(a => `<article><strong>${esc(a.email)}</strong><span>${bytes(a.used_bytes)} / ${bytes(a.quota_bytes)}</span><small>${esc(a.action)}</small></article>`).join('')}</div><button id="apply-quota" ${summary.allow_apply ? '' : 'disabled'}>Apply quota actions</button>` : '<p class="muted">No enabled user is over quota.</p>'}
       </section>
-    </main>`;
+      <section class="panel">
+        <div class="panel-head"><h2>Bandwidth limits</h2><span>${esc(bandwidth.device || 'eth0')}</span></div>
+        ${bandwidth.limits.length ? `<div class="table">${bandwidth.limits.map(l => `<article><strong>${esc(l.email)}</strong><span>port ${l.port}</span><small>down ${l.download_mbps || 'none'} Mbps · up ${l.upload_mbps || 'none'} Mbps</small></article>`).join('')}</div>` : '<p class="muted">No per-user speed limits configured.</p>'}
+        <button id="apply-bandwidth" ${summary.allow_apply ? '' : 'disabled'}>Apply bandwidth rules</button>
+      </section>
+    </section>`;
+}
+
+function renderUsers(summary: Summary) {
+  return `
+    <section class="grid2">
+      <section class="panel">
+        <div class="panel-head"><h2>Users</h2><button id="add-user">Add user</button></div>
+        <div class="user-list">${summary.user_items.map(u => `
+          <article class="row-card">
+            <div><h3>${esc(u.email)}</h3><p>${u.uuid.slice(0, 8)}...${u.uuid.slice(-4)} · ${u.enabled ? 'enabled' : 'disabled'}</p><p class="muted">quota ${u.quota_bytes ? bytes(u.quota_bytes) : 'none'} · speed ${u.download_mbps || 'none'}/${u.upload_mbps || 'none'} Mbps${u.bandwidth_port ? ` · port ${u.bandwidth_port}` : ''}</p></div>
+            <div class="row-actions">
+              <button data-view-user="${esc(u.email)}">View config</button>
+              <button data-edit-user="${esc(u.email)}">Edit</button>
+              <button data-quota-user="${esc(u.email)}">Quota</button>
+              <button data-speed-user="${esc(u.email)}">Speed</button>
+              <button class="danger" data-delete-user="${esc(u.email)}">Delete</button>
+            </div>
+          </article>`).join('')}</div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>Connection config</h2><button id="copy-config">Copy</button></div>
+        <textarea id="config-output" readonly placeholder="Select View config for a user."></textarea>
+        <p id="action-msg" class="muted"></p>
+      </section>
+    </section>`;
+}
+
+function renderRoutes(summary: Summary) {
+  return `
+    <section class="grid2">
+      <section class="panel">
+        <div class="panel-head"><h2>Direct domains</h2><button id="add-direct">Add domain</button></div>
+        <div class="table">${summary.direct_domains.map(d => `<article><strong>${esc(d)}</strong><button class="danger" data-delete-direct="${esc(d)}">Delete</button></article>`).join('') || '<p class="muted">No direct domains.</p>'}</div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>Blocked domains</h2><span>${summary.block_domains.length + summary.manual_blocks.length}</span></div>
+        <div class="table">${[...summary.block_domains, ...summary.manual_blocks].map(d => `<article><strong>${esc(d)}</strong><small>blocked</small></article>`).join('')}</div>
+      </section>
+    </section>`;
+}
+
+function renderSocks(summary: Summary) {
+  return `<section class="panel"><div class="panel-head"><h2>SOCKS users</h2></div><div class="user-list">${summary.socks_items.map(s => `<article class="row-card"><div><h3>${esc(s.username)}</h3><p>${esc(s.name)} · port ${s.port}</p></div><button data-view-socks="${esc(s.username)}">View config</button></article>`).join('')}</div></section>`;
+}
+
+function bindEvents() {
   document.querySelector('#refresh')?.addEventListener('click', load);
   document.querySelector('#apply')?.addEventListener('click', applyXray);
   document.querySelector('#sync-usage')?.addEventListener('click', syncUsage);
   document.querySelector('#apply-quota')?.addEventListener('click', applyQuota);
   document.querySelector('#apply-bandwidth')?.addEventListener('click', applyBandwidth);
+  document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab!)));
+  document.querySelector('#add-user')?.addEventListener('click', addUser);
+  document.querySelector('#add-direct')?.addEventListener('click', addDirect);
+  document.querySelector('#copy-config')?.addEventListener('click', copyConfig);
+  document.querySelectorAll<HTMLButtonElement>('[data-view-user]').forEach(b => b.addEventListener('click', () => showUserConfig(b.dataset.viewUser!)));
+  document.querySelectorAll<HTMLButtonElement>('[data-view-socks]').forEach(b => b.addEventListener('click', () => showSocksConfig(b.dataset.viewSocks!)));
+  document.querySelectorAll<HTMLButtonElement>('[data-edit-user]').forEach(b => b.addEventListener('click', () => editUser(b.dataset.editUser!)));
+  document.querySelectorAll<HTMLButtonElement>('[data-quota-user]').forEach(b => b.addEventListener('click', () => setQuota(b.dataset.quotaUser!)));
+  document.querySelectorAll<HTMLButtonElement>('[data-speed-user]').forEach(b => b.addEventListener('click', () => setSpeed(b.dataset.speedUser!)));
+  document.querySelectorAll<HTMLButtonElement>('[data-delete-user]').forEach(b => b.addEventListener('click', () => deleteUser(b.dataset.deleteUser!)));
+  document.querySelectorAll<HTMLButtonElement>('[data-delete-direct]').forEach(b => b.addEventListener('click', () => deleteDirect(b.dataset.deleteDirect!)));
 }
 
-async function applyXray() {
-  if (!confirm('Apply generated Xray config and restart Xray?')) return;
-  await fetchJSON('/api/xray/apply', {method: 'POST'});
-  await load();
+function switchTab(name: string) {
+  document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', (b as HTMLElement).dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+  document.querySelector(`#tab-${name}`)?.classList.remove('hidden');
 }
+function selectedUser(email: string) { return latestSummary?.user_items.find(u => u.email === email); }
+function selectedSocks(user: string) { return latestSummary?.socks_items.find(s => s.username === user); }
+function message(text: string) { const el = document.querySelector('#action-msg'); if (el) el.textContent = text; }
+function output(text: string) { const el = document.querySelector<HTMLTextAreaElement>('#config-output'); if (el) el.value = text; }
 
-async function syncUsage() {
-  await fetchJSON('/api/usage/sync', {method: 'POST'});
-  await load();
+async function addUser() {
+  const email = prompt('Email/name for new VLESS user');
+  if (!email) return;
+  const res = await post('/api/users', {email: email.trim(), uuid: ''}) as {links:Link[]};
+  output(linkText(res.links || [])); message('User added in stack config. Apply Xray to make it live.');
+  await load(); switchTab('users'); output(linkText(res.links || []));
 }
-
-async function applyQuota() {
-  if (!confirm('Disable users that are over quota and apply Xray config?')) return;
-  await fetchJSON('/api/quota/apply', {method: 'POST'});
-  await load();
+async function editUser(email: string) {
+  const u = selectedUser(email); if (!u) return;
+  const nextEmail = prompt('Email/name', u.email); if (!nextEmail) return;
+  const uuid = prompt('UUID', u.uuid); if (!uuid) return;
+  const enabled = confirm('Should this user be enabled? OK = enabled, Cancel = disabled');
+  await put('/api/users', {old_email: u.email, email: nextEmail.trim(), uuid: uuid.trim(), enabled});
+  await load(); switchTab('users'); message('User updated in stack config. Apply Xray to make it live.');
 }
-
-async function applyBandwidth() {
-  if (!confirm('Apply nft/tc bandwidth rules on the server?')) return;
-  await fetchJSON('/api/bandwidth/apply', {method: 'POST'});
-  await load();
+async function deleteUser(email: string) {
+  if (!confirm(`Delete ${email} from stack config?`)) return;
+  await fetchJSON(`/api/users?email=${encodeURIComponent(email)}`, {method: 'DELETE'});
+  await load(); switchTab('users'); message('User deleted in stack config. Apply Xray to make it live.');
 }
+async function setQuota(email: string) {
+  const u = selectedUser(email); if (!u) return;
+  const current = u.quota_bytes ? String(Math.round(u.quota_bytes / 1024 / 1024 / 1024)) : '';
+  const value = prompt('Traffic quota in GB. Empty = unlimited.', current);
+  if (value === null) return;
+  const gb = value.trim() ? Number(value) : 0;
+  await post('/api/users/quota', {email, quota_bytes: Math.max(0, Math.round(gb * 1024 * 1024 * 1024))});
+  await load(); switchTab('users'); message('Quota updated.');
+}
+async function setSpeed(email: string) {
+  const u = selectedUser(email); if (!u) return;
+  const down = prompt('Download Mbps. Empty = none.', u.download_mbps ? String(u.download_mbps) : '');
+  if (down === null) return;
+  const up = prompt('Upload Mbps. Empty = none.', u.upload_mbps ? String(u.upload_mbps) : '');
+  if (up === null) return;
+  await post('/api/users/bandwidth', {email, download_mbps: Number(down || 0), upload_mbps: Number(up || 0)});
+  await load(); switchTab('users'); showUserConfig(email); message('Speed limit updated. Use limited config link after applying Xray and bandwidth rules.');
+}
+function showUserConfig(email: string) { const u = selectedUser(email); if (u) output(linkText(u.links || [])); }
+function showSocksConfig(username: string) { const s = selectedSocks(username); if (s) output(linkText(s.links || [])); }
+async function copyConfig() {
+  const value = document.querySelector<HTMLTextAreaElement>('#config-output')?.value || '';
+  await navigator.clipboard.writeText(value); message('Copied.');
+}
+async function addDirect() {
+  const domain = prompt('Direct domain rule, e.g. domain:example.com or full:example.com');
+  if (!domain) return;
+  await post('/api/direct-domains', {domain: domain.trim()});
+  await load(); switchTab('routes');
+}
+async function deleteDirect(domain: string) {
+  await fetchJSON(`/api/direct-domains?domain=${encodeURIComponent(domain)}`, {method: 'DELETE'});
+  await load(); switchTab('routes');
+}
+async function applyXray() { if (confirm('Apply generated Xray config and restart Xray?')) { await fetchJSON('/api/xray/apply', {method: 'POST'}); await load(); } }
+async function syncUsage() { await fetchJSON('/api/usage/sync', {method: 'POST'}); await load(); }
+async function applyQuota() { if (confirm('Disable users that are over quota and apply Xray config?')) { await fetchJSON('/api/quota/apply', {method: 'POST'}); await load(); } }
+async function applyBandwidth() { if (confirm('Apply nft/tc bandwidth rules on the server?')) { await fetchJSON('/api/bandwidth/apply', {method: 'POST'}); await load(); } }
 
 async function load() {
   app.innerHTML = '<div class="loading">Loading...</div>';
@@ -118,7 +248,6 @@ async function load() {
       fetchJSON<BandwidthPlan>('/api/bandwidth/plan').catch(() => ({device:'eth0', limits:[], needs_apply:false, apply_locked:true, tc_commands:[]})),
     ]);
     render(summary, health, plan, usage, quota, bandwidth);
-  } catch (error) { app.innerHTML = `<div class="error-page"><h1>Load failed</h1><pre>${String(error)}</pre></div>`; }
+  } catch (error) { app.innerHTML = `<div class="error-page"><h1>Load failed</h1><pre>${esc(String(error))}</pre></div>`; }
 }
-
 void load();

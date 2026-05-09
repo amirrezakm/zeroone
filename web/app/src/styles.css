@@ -17,6 +17,7 @@ h1, h2, h3, p { margin: 0; }
 h1 { font-size: 22px; }
 button { border: 1px solid var(--line); background: var(--panel); border-radius: 7px; padding: 9px 12px; font-weight: 700; cursor: pointer; }
 button:disabled { opacity: .45; cursor: not-allowed; }
+button.danger { color: var(--bad); }
 .actions { display: flex; gap: 8px; align-items: center; }
 .shell { max-width: 1180px; margin: 0 auto; padding: 22px; }
 .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
@@ -44,5 +45,14 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .table { display: grid; gap: 8px; margin-bottom: 12px; }
 .table article { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
 .table span, .table small { color: var(--muted); font-size: 13px; }
+.tabs { display: flex; gap: 8px; margin: 0 0 16px; border-bottom: 1px solid var(--line); }
+.tabs button { border-bottom: 0; border-radius: 7px 7px 0 0; }
+.tabs button.active { color: var(--accent); border-color: var(--accent); }
+.hidden { display: none; }
+.user-list { display: grid; gap: 10px; }
+.row-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.row-card h3 { overflow-wrap: anywhere; }
+.row-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+textarea { width: 100%; min-height: 280px; resize: vertical; border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text); }
 @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } .shell-header { align-items: flex-start; flex-direction: column; } }
 pre { white-space: pre-wrap; }
