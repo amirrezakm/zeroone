@@ -144,8 +144,13 @@ func (s *Server) userActivity(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) failoverDecision(w http.ResponseWriter, r *http.Request) {
 	checks := tunnel.CheckAll(r.Context(), s.cfg.Tunnels, s.cfg.Failover.ProbeTargets())
-	decision, _ := failover.Decide(s.cfg, failover.State{}, checks, time.Now())
-	s.write(w, map[string]any{"checks": checks, "decision": decision})
+	state, err := failover.LoadState(s.cfg.Server.FailoverStatePath)
+	if err != nil {
+		s.fail(w, 500, err)
+		return
+	}
+	decision, nextState := failover.Decide(s.cfg, state, checks, time.Now())
+	s.write(w, map[string]any{"checks": checks, "decision": decision, "state": state, "next_state": nextState})
 }
 
 func (s *Server) summary(w http.ResponseWriter, r *http.Request) {
