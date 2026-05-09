@@ -65,14 +65,13 @@ func RecentActivity(ctx context.Context, runner system.Runner, email string, sec
 	if err != nil {
 		return nil, err
 	}
-	emailRE := regexp.MustCompile(`\bemail:\s+` + regexp.QuoteMeta(email) + `(?=\s|$)`)
 	lineRE := regexp.MustCompile(`^(\S+).*? from (?:tcp:)?([^ ]+) accepted (tcp|udp):([^ ]+) \[([^\]]+)\]`)
 	items := []Activity{}
 	seen := map[string]bool{}
 	lines := strings.Split(res.Stdout, "\n")
 	for i := len(lines) - 1; i >= 0; i-- {
 		line := lines[i]
-		if !strings.Contains(line, " accepted ") || !emailRE.MatchString(line) {
+		if !strings.Contains(line, " accepted ") || !lineHasEmail(line, email) {
 			continue
 		}
 		m := lineRE.FindStringSubmatch(line)
@@ -94,6 +93,15 @@ func RecentActivity(ctx context.Context, runner system.Runner, email string, sec
 		}
 	}
 	return items, nil
+}
+
+func lineHasEmail(line, email string) bool {
+	for _, token := range strings.Fields(line) {
+		if token == email {
+			return strings.Contains(line, "email: "+email) || strings.Contains(line, "email:\t"+email)
+		}
+	}
+	return false
 }
 
 func cpu() CPU {
