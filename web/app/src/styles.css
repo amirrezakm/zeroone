@@ -60,5 +60,12 @@ button.danger { color: var(--bad); }
 .row-card h3 { overflow-wrap: anywhere; }
 .row-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 textarea { width: 100%; min-height: 280px; resize: vertical; border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text); }
+.test-form { display: grid; grid-template-columns: minmax(220px, 1fr) 110px 180px auto; gap: 10px; align-items: end; }
+.test-form label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weight: 700; }
+input, select { width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: 9px 10px; background: var(--panel); color: var(--text); font: inherit; }
+.test-result { margin-top: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; overflow-wrap: anywhere; }
+.ok-text { color: var(--ok); }
+.bad-text { color: var(--bad); }
 @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } .shell-header { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 800px) { .test-form { grid-template-columns: 1fr; } }
 pre { white-space: pre-wrap; }

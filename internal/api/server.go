@@ -30,6 +30,7 @@ func NewServer(cfg stack.Config, configPath string, allowApply bool) http.Handle
 	s := &Server{cfg: cfg, configPath: configPath, allowApply: allowApply}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.health)
+	mux.HandleFunc("POST /api/test/connect", s.testConnect)
 	mux.HandleFunc("GET /api/system", s.system)
 	mux.HandleFunc("GET /api/users/activity", s.userActivity)
 	mux.HandleFunc("GET /api/config/summary", s.summary)
@@ -89,6 +90,42 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) system(w http.ResponseWriter, r *http.Request) {
 	s.write(w, monitor.SystemSnapshot(s.cfg))
+}
+
+func (s *Server) testConnect(w http.ResponseWriter, r *http.Request) {
+	var req tunnel.ConnectRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.fail(w, 400, err)
+		return
+	}
+	switch req.Route {
+	case "", "direct":
+		req.Route = "direct"
+	case "priority-upstream":
+		if s.cfg.Xray.Outbounds.Fallback.Address == "" || s.cfg.Xray.Outbounds.Fallback.Port == 0 {
+			s.fail(w, 400, fmt.Errorf("fallback outbound is not configured"))
+			return
+		}
+		req.Target = s.cfg.Xray.Outbounds.Fallback.Address
+		req.Port = s.cfg.Xray.Outbounds.Fallback.Port
+	case "tun0", "tun1":
+		req.Interface = req.Route
+	default:
+		found := false
+		for _, t := range s.cfg.Tunnels {
+			if req.Route == t.Name || req.Route == t.Interface {
+				req.Route = t.Interface
+				req.Interface = t.Interface
+				found = true
+				break
+			}
+		}
+		if !found {
+			s.fail(w, 400, fmt.Errorf("unknown route %q", req.Route))
+			return
+		}
+	}
+	s.write(w, tunnel.TestConnect(r.Context(), req))
 }
 
 func (s *Server) userActivity(w http.ResponseWriter, r *http.Request) {

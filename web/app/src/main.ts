@@ -24,6 +24,7 @@ type BandwidthPlan = { device: string; limits: Array<{email:string; port:number;
 type SystemInfo = { cpu:{percent:number; detail:string}; ram:{percent:number; detail:string; used_bytes:number; total_bytes:number}; tunnels:Array<{name:string; rx_bytes:number; tx_bytes:number}>; updated_at:number };
 type FailoverMode = { outbound_tag:string; interface?:string };
 type FailoverDecision = { decision:{current:FailoverMode; desired:FailoverMode; effective:FailoverMode; pending:boolean; confirmation_count:number; reason:string} };
+type ConnectTest = { ok:boolean; target:string; address:string; route:string; interface?:string; local_ipv4?:string; latency_ms:number; error?:string };
 
 const apiBase = import.meta.env.VITE_API_BASE || '';
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -117,6 +118,21 @@ function renderStatus(summary: Summary, health: Health, plan: ApplyPlan, usage: 
       <p class="muted">${esc(decision.reason)}</p>
     </section>
     <section class="panel">
+      <div class="panel-head"><h2>Route test</h2><span>TCP connect from server</span></div>
+      <div class="test-form">
+        <label>Target<input id="test-target" value="chatgpt.com" autocomplete="off"></label>
+        <label>Port<input id="test-port" type="number" min="1" max="65535" value="443"></label>
+        <label>Route<select id="test-route">
+          <option value="tun0">tun0</option>
+          <option value="tun1">tun1</option>
+          <option value="direct">direct</option>
+          <option value="priority-upstream">priority upstream</option>
+        </select></label>
+        <button id="run-route-test">Run test</button>
+      </div>
+      <div id="route-test-result" class="test-result muted">No test run yet.</div>
+    </section>
+    <section class="panel">
       <div class="panel-head"><h2>Usage</h2><span>${usage.updated_at ? new Date(usage.updated_at * 1000).toLocaleString() : 'not synced'}</span></div>
       <div class="usage-list">${topUsers.map(u => `<article><strong>${esc(u.email)}</strong><span>${bytes(u.total)}</span><small>up ${bytes(u.uplink)} · down ${bytes(u.downlink)}</small></article>`).join('') || '<p class="muted">No usage yet.</p>'}</div>
     </section>
@@ -189,6 +205,7 @@ function bindEvents() {
   document.querySelector('#sync-usage')?.addEventListener('click', () => runAction(syncUsage));
   document.querySelector('#apply-quota')?.addEventListener('click', () => runAction(applyQuota));
   document.querySelector('#apply-bandwidth')?.addEventListener('click', () => runAction(applyBandwidth));
+  document.querySelector('#run-route-test')?.addEventListener('click', () => runAction(runRouteTest));
   document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab!)));
   document.querySelector('#add-user')?.addEventListener('click', () => runAction(addUser));
   document.querySelector('#add-direct')?.addEventListener('click', () => runAction(addDirect));
@@ -316,6 +333,21 @@ async function applyXray() { if (confirm('Apply generated Xray config and restar
 async function syncUsage() { await fetchJSON('/api/usage/sync', {method: 'POST'}); await load(); }
 async function applyQuota() { if (confirm('Disable users that are over quota and apply Xray config?')) { await fetchJSON('/api/quota/apply', {method: 'POST'}); await load(); } }
 async function applyBandwidth() { if (confirm('Apply nft/tc bandwidth rules on the server?')) { await fetchJSON('/api/bandwidth/apply', {method: 'POST'}); await load(); } }
+async function runRouteTest() {
+  const target = document.querySelector<HTMLInputElement>('#test-target')?.value.trim() || '';
+  const port = Number(document.querySelector<HTMLInputElement>('#test-port')?.value || 443);
+  const route = document.querySelector<HTMLSelectElement>('#test-route')?.value || 'tun0';
+  const box = document.querySelector<HTMLDivElement>('#route-test-result');
+  if (box) box.textContent = 'Testing...';
+  const result = await post('/api/test/connect', {target, port, route, timeout_ms: 6000}) as ConnectTest;
+  if (box) {
+    const path = result.interface ? `${result.route} (${result.interface}${result.local_ipv4 ? ` ${result.local_ipv4}` : ''})` : result.route;
+    box.className = `test-result ${result.ok ? 'ok-text' : 'bad-text'}`;
+    box.textContent = result.ok
+      ? `Connected to ${result.address} via ${path} in ${result.latency_ms}ms`
+      : `Failed to connect to ${result.address || target} via ${path}: ${result.error || 'unknown error'}`;
+  }
+}
 
 async function load() {
   app.innerHTML = '<div class="loading">Loading...</div>';
