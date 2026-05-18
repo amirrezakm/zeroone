@@ -1,4 +1,4 @@
-# xray-stack-zeroone
+# xray-stack-zeroone 🔢
 
 Go control plane, edge relay, and web panel for the ZeroOne Xray stack
 (production host `185.128.139.68`). The Python/Bash control plane was
