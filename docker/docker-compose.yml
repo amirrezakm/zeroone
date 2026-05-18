@@ -1,0 +1,33 @@
+# zeroone — single-service Docker Compose template.
+#
+# This file is fetched by `zeroone install` and placed at
+# /opt/zeroone/docker-compose.yml. Network mode is host so Xray can bind
+# its inbound ports (443, 3002, custom SOCKS, ...) directly without
+# per-port mappings.
+#
+# Volumes:
+#   /var/lib/zeroone  — persistent state: stack.json, xray.json,
+#                       audit.log, snapshots/, presence.json,
+#                       logs/xray.log
+#
+# .env vars are loaded from /opt/zeroone/.env (see .env.example).
+
+services:
+  zeroone:
+    image: ghcr.io/amirrezakm/zeroone:${ZEROONE_VERSION:-latest}
+    container_name: zeroone
+    restart: always
+    network_mode: host
+    volumes:
+      - /var/lib/zeroone:/var/lib/zeroone
+    env_file: .env
+    healthcheck:
+      test:
+        - "CMD"
+        - "curl"
+        - "-fsS"
+        - "http://127.0.0.1:${ZEROONE_ADMIN_LISTEN_PORT:-8000}/api/health"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

@@ -29,22 +29,46 @@ import (
 	"github.com/amirrezakm/zeroone/internal/system"
 	"github.com/amirrezakm/zeroone/internal/tunnel"
 	"github.com/amirrezakm/zeroone/internal/usage"
+	xrayinternal "github.com/amirrezakm/zeroone/internal/xray"
+	"github.com/amirrezakm/zeroone/internal/xrayproc"
 )
 
 func main() {
+	// Subcommand dispatch (xray-stackd admin add/list/reset-password).
+	// Must run before flag.Parse so the subcommand's own flag set owns
+	// the remaining argv. The default verb is "run" (the daemon).
+	if handled, code := runAdminSubcommand(os.Args[1:]); handled {
+		os.Exit(code)
+	}
+
 	configPath := flag.String("config", "config/stack.example.json", "stack config path")
 	printXray := flag.Bool("print-xray", false, "print generated xray config and exit")
 	allowApply := flag.Bool("allow-apply", false, "allow endpoints that modify live Xray/systemd state")
 	manageFailover := flag.Bool("manage-failover", false, "run the automatic Xray tunnel failover loop")
 	manageVPN := flag.Bool("manage-vpn", false, "restart tunnel services when their unit or interface goes down")
 	manageRelay := flag.Bool("manage-relay", false, "supervise the mhrv-rs relay plugin (auto-start, restart, probe)")
+	manageXray := flag.Bool("manage-xray", false, "run xray as a child process and restart it on apply (container mode; replaces systemctl)")
 	flag.Parse()
+
+	// Auto-init: if -config points at a missing file and ZEROONE_AUTO_INIT=1,
+	// write a minimal default config so the daemon can start fresh.
+	// Container builds set this; host installs leave it unset.
+	if os.Getenv("ZEROONE_AUTO_INIT") == "1" {
+		if _, err := os.Stat(*configPath); os.IsNotExist(err) {
+			if err := writeMinimalConfig(*configPath); err != nil {
+				slog.Error("auto-init config", "err", err)
+				os.Exit(1)
+			}
+			slog.Info("auto-init wrote minimal config", "path", *configPath)
+		}
+	}
 
 	cfg, err := stack.Load(*configPath)
 	if err != nil {
 		slog.Error("load config", "err", err)
 		os.Exit(1)
 	}
+	applyEnvOverrides(cfg)
 	// Backfill subscription tokens for any user that doesn't have one yet.
 	// Persisted immediately so /sub/{token} and /me/{token} keep working
 	// across restarts. Skipped in -print-xray mode (read-only operation).
@@ -183,6 +207,15 @@ func main() {
 	}()
 
 	ctx := ctxRoot
+	if *manageXray {
+		// Run xray as a child process; wire it in as the active
+		// Restarter so api.Apply uses it instead of `systemctl`.
+		xrayLogPath := filepath.Join(stateDir, "logs", "xray.log")
+		sup := xrayproc.New(cfg.Server.XrayBinary, cfg.Server.XrayConfigPath, xrayLogPath, slog.Default())
+		xrayinternal.SetRestarter(sup)
+		slog.Info("starting xray supervisor", "binary", cfg.Server.XrayBinary, "config", cfg.Server.XrayConfigPath, "log", xrayLogPath)
+		go sup.Run(ctx)
+	}
 	if *manageFailover {
 		slog.Info("starting failover manager")
 		go (&failover.Manager{ConfigPath: *configPath}).Run(ctx)

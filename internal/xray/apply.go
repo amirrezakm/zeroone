@@ -20,6 +20,34 @@ type ApplyPlan struct {
 
 type Manager struct{ Runner system.Runner }
 
+// Restarter restarts the running xray process after a new config has
+// been written. The default implementation shells out to
+// `systemctl restart xray.service`; container builds swap in a
+// child-process supervisor via SetRestarter.
+type Restarter interface {
+	Restart(ctx context.Context, runner system.Runner) error
+}
+
+var activeRestarter Restarter = systemctlRestarter{}
+
+// SetRestarter overrides the default systemctl-backed restarter. Called
+// once during daemon startup when -manage-xray is set.
+func SetRestarter(r Restarter) {
+	if r != nil {
+		activeRestarter = r
+	}
+}
+
+type systemctlRestarter struct{}
+
+func (systemctlRestarter) Restart(ctx context.Context, runner system.Runner) error {
+	if runner == nil {
+		runner = system.ExecRunner{Timeout: 20 * time.Second}
+	}
+	_, err := runner.Run(ctx, "systemctl", "restart", "xray.service")
+	return err
+}
+
 func (m Manager) Render(cfg stack.Config) ([]byte, error) {
 	return json.MarshalIndent(Generate(cfg), "", "  ")
 }
@@ -93,11 +121,7 @@ func (m Manager) Apply(ctx context.Context, cfg stack.Config) (ApplyPlan, error)
 		return plan, err
 	}
 	plan.BackupPath = backupPath
-	runner := m.Runner
-	if runner == nil {
-		runner = system.ExecRunner{Timeout: 20 * time.Second}
-	}
-	if _, err := runner.Run(ctx, "systemctl", "restart", "xray.service"); err != nil {
+	if err := activeRestarter.Restart(ctx, m.Runner); err != nil {
 		return plan, fmt.Errorf("restart xray: %w", err)
 	}
 	return plan, nil

@@ -1,0 +1,50 @@
+{
+  "server": {
+    "public_ip": "",
+    "client_endpoints": [],
+    "admin_listen": "0.0.0.0:8000",
+    "xray_config_path": "/var/lib/zeroone/xray.json",
+    "xray_binary": "/usr/local/bin/xray",
+    "backup_dir": "/var/lib/zeroone/backups",
+    "user_usage_path": "/var/lib/zeroone/user-usage.json",
+    "socks_usage_path": "/var/lib/zeroone/socks-usage.json",
+    "ui_path": "/app/ui",
+    "bandwidth_device": "",
+    "bandwidth_config_path": "/var/lib/zeroone/bandwidth-limits.json",
+    "failover_state_path": "/var/lib/zeroone/failover-state.json"
+  },
+  "xray": {
+    "log_level": "warning",
+    "dns_servers": ["1.1.1.1", "8.8.8.8"],
+    "api_port": 10085,
+    "inbounds": {
+      "vless_ws_port": 8443,
+      "vless_xhttp_port": 0,
+      "vless_xhttp_path": "/api/v1/events",
+      "vless_xhttp_mode": "auto",
+      "public_socks": []
+    },
+    "users": [],
+    "outbounds": {
+      "proxy": {
+        "tag": "proxy",
+        "type": "freedom"
+      }
+    },
+    "routing": {
+      "block_udp_443": false,
+      "direct_domains": [],
+      "direct_ips": [],
+      "block_domains": [],
+      "block_ips": [],
+      "ai_domains": []
+    }
+  },
+  "tunnels": [],
+  "failover": {
+    "enabled": false
+  },
+  "panel": {
+    "admins": []
+  }
+}
