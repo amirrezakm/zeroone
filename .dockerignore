@@ -1,0 +1,12 @@
+.git
+.github
+.idea
+.vscode
+dist
+docs
+rootfs
+server-snapshots
+web/app/node_modules
+web/app/dist
+config/stack.local.json
+**/.DS_Store

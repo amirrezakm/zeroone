@@ -1,0 +1,420 @@
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "dns": {
+    "hosts": {
+      "edge.velamkon.lol": [
+        "172.64.155.209"
+      ]
+    },
+    "queryStrategy": "UseIPv4",
+    "servers": [
+      "217.218.155.155"
+    ]
+  },
+  "inbounds": [
+    {
+      "port": 443,
+      "listen": "0.0.0.0",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "ws",
+        "wsSettings": {
+          "path": "/vless"
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
+      }
+    },
+    {
+      "port": 1080,
+      "listen": "0.0.0.0",
+      "protocol": "socks",
+      "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "example",
+            "pass": "change-me"
+          }
+        ],
+        "udp": true
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
+      },
+      "tag": "managed-socks-router"
+    },
+    {
+      "port": 10808,
+      "listen": "127.0.0.1",
+      "protocol": "socks",
+      "settings": {
+        "auth": "noauth",
+        "udp": true
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
+      }
+    },
+    {
+      "tag": "vless-xhttp-local",
+      "listen": "127.0.0.1",
+      "port": 3002,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000000",
+            "email": "example-user"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": {
+          "path": "/xhttp"
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
+      }
+    },
+    {
+      "tag": "xray-api",
+      "listen": "127.0.0.1",
+      "port": 10085,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "127.0.0.1"
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "proxy",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "172.64.155.209",
+            "port": 443,
+            "users": [
+              {
+                "id": "00000000-0000-4000-8000-000000000000",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "edge.velamkon.lol",
+          "fingerprint": "chrome"
+        },
+        "wsSettings": {
+          "path": "/edge",
+          "host": "edge.velamkon.lol"
+        },
+        "sockopt": {
+          "interface": "tun1"
+        }
+      },
+      "mux": {
+        "enabled": true,
+        "concurrency": 16,
+        "xudpConcurrency": 16,
+        "xudpProxyUDP443": "reject"
+      }
+    },
+    {
+      "tag": "priority-proxy",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "185.143.232.253",
+            "port": 80,
+            "users": [
+              {
+                "id": "00000000-0000-4000-8000-000000000000",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+          "path": "/",
+          "host": "dl3.farsdroid.site"
+        }
+      }
+    },
+    {
+      "tag": "direct",
+      "protocol": "freedom",
+      "settings": {
+        "domainStrategy": "UseIPv4"
+      },
+      "streamSettings": {
+        "sockopt": {
+          "interface": "eth0"
+        }
+      }
+    },
+    {
+      "tag": "block",
+      "protocol": "blackhole"
+    }
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": [
+          "xray-api"
+        ],
+        "outboundTag": "api"
+      },
+      {
+        "type": "field",
+        "network": "udp",
+        "port": "443",
+        "outboundTag": "block"
+      },
+      {
+        "type": "field",
+        "domain": [
+          "full:chat.snappgrocery.net",
+          "domain:chat.snappgrocery.net"
+        ],
+        "outboundTag": "direct"
+      },
+      {
+        "type": "field",
+        "ip": [
+          "203.0.113.1/32"
+        ],
+        "outboundTag": "direct"
+      },
+      {
+        "type": "field",
+        "domain": [
+          "geosite:category-ir",
+          "regexp:.*\\.ir$",
+          "regexp:.*\\.xn--mgba3a4f16a$"
+        ],
+        "outboundTag": "block"
+      },
+      {
+        "type": "field",
+        "ip": [
+          "geoip:ir"
+        ],
+        "outboundTag": "block"
+      },
+      {
+        "type": "field",
+        "domain": [
+          "domain:aparat.com",
+          "domain:bazaar.ir",
+          "domain:blubank.com",
+          "domain:cafebazaar.com",
+          "domain:dify.sakhtar.tech",
+          "domain:digikala.com",
+          "domain:fidibo.com",
+          "domain:filimo.com",
+          "domain:namava.com",
+          "domain:namava.ir",
+          "domain:sakhtar.tech",
+          "domain:sheypoor.com",
+          "domain:snapp.cab",
+          "domain:snapp.ir",
+          "domain:snapp.taxi",
+          "domain:snappgrocery.net",
+          "domain:tapsi.cab",
+          "domain:torob.com",
+          "domain:varzesh3.com"
+        ],
+        "outboundTag": "block"
+      },
+      {
+        "type": "field",
+        "domain": [
+          "domain:desktop.openai.com",
+          "domain:download.openai.com",
+          "domain:downloads.openai.com",
+          "domain:updates.openai.com",
+          "domain:cdn.openai.com",
+          "domain:download.chatgpt.com",
+          "domain:downloads.chatgpt.com",
+          "domain:updates.chatgpt.com",
+          "domain:downloads.claude.ai",
+          "domain:download.claude.ai",
+          "domain:updates.claude.ai",
+          "domain:releases.claude.ai",
+          "domain:download.anthropic.com",
+          "domain:downloads.anthropic.com",
+          "domain:updates.anthropic.com",
+          "domain:updates.cursor.com",
+          "domain:update.cursor.com",
+          "domain:download.cursor.com",
+          "domain:downloads.cursor.com",
+          "domain:releases.cursor.com",
+          "domain:updates.cursor.sh",
+          "domain:update.cursor.sh",
+          "domain:download.cursor.sh",
+          "domain:downloads.cursor.sh",
+          "domain:releases.cursor.sh"
+        ],
+        "outboundTag": "proxy"
+      },
+      {
+        "type": "field",
+        "domain": [
+          "domain:chatgpt.com",
+          "domain:chat.openai.com",
+          "domain:openai.com",
+          "domain:oaistatic.com",
+          "domain:oaiusercontent.com",
+          "domain:openaiusercontent.com",
+          "domain:claude.ai",
+          "domain:anthropic.com",
+          "domain:cursor.com",
+          "domain:cursor.sh",
+          "domain:cursorapi.com",
+          "domain:anysphere.co",
+          "domain:anysphere.cursor.sh",
+          "domain:whatismyipaddress.com"
+        ],
+        "outboundTag": "proxy"
+      }
+    ]
+  },
+  "stats": {},
+  "api": {
+    "tag": "api",
+    "services": [
+      "StatsService"
+    ]
+  },
+  "policy": {
+    "levels": {
+      "0": {
+        "statsUserUplink": true,
+        "statsUserDownlink": true
+      }
+    }
+  }
+}

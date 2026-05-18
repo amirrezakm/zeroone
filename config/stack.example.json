@@ -1,0 +1,194 @@
+{
+  "server": {
+    "public_ip": "203.0.113.1",
+    "client_endpoints": [
+      {
+        "name": "pars-pack",
+        "host": "edge.example.com",
+        "port": 443,
+        "network": "xhttp",
+        "path": "/api/v1/events",
+        "mode": "stream-up",
+        "tls": true,
+        "enabled": true,
+        "extra": {
+          "x_padding_bytes": "100-1000",
+          "xmux": {
+            "max_concurrency": "16-24",
+            "c_max_lifetime_ms": 60000,
+            "h_max_request_times": 600
+          }
+        },
+        "link_compat": true
+      },
+      {
+        "name": "runflare-ws",
+        "host": "your-app.runflare.run",
+        "port": 443,
+        "network": "ws",
+        "path": "/vless",
+        "tls": true,
+        "enabled": false
+      },
+      {
+        "name": "runflare-xhttp",
+        "host": "your-app.runflare.run",
+        "port": 443,
+        "network": "xhttp",
+        "path": "/api/v1/events",
+        "mode": "stream-up",
+        "tls": true,
+        "enabled": false,
+        "extra": {
+          "x_padding_bytes": "100-1000",
+          "xmux": {
+            "max_concurrency": "16-24",
+            "c_max_lifetime_ms": 60000,
+            "h_max_request_times": 600
+          }
+        },
+        "link_compat": true
+      }
+    ],
+    "admin_listen": "127.0.0.1:8091",
+    "xray_config_path": "/usr/local/etc/xray/config.json",
+    "xray_binary": "/usr/local/bin/xray",
+    "backup_dir": "/root/xray-audit-backups",
+    "user_usage_path": "/usr/local/etc/xray/user-usage.json",
+    "socks_usage_path": "/usr/local/etc/xray/socks-usage.json",
+    "ui_path": "/usr/local/share/xray-stack-ui",
+    "bandwidth_device": "eth0",
+    "bandwidth_config_path": "/usr/local/etc/xray/bandwidth-limits.json",
+    "failover_state_path": "/var/lib/xray-stack/failover-state.json"
+  },
+  "xray": {
+    "log_level": "warning",
+    "dns_servers": [
+      "217.218.155.155"
+    ],
+    "dns_hosts": {
+      "edge.velamkon.lol": [
+        "172.64.155.209"
+      ]
+    },
+    "api_port": 10085,
+    "inbounds": {
+      "vless_ws_port": 443,
+      "vless_xhttp_port": 3002,
+      "vless_xhttp_path": "/api/v1/events",
+      "vless_xhttp_mode": "auto",
+      "vless_xhttp_tuning": {
+        "x_padding_bytes": "100-1000",
+        "sc_max_buffered_posts": 30,
+        "sc_max_each_post_bytes": "1000000",
+        "sc_stream_up_server_secs": "20-80",
+        "keep_alive_period": 30
+      },
+      "vless_xhttp_link_compat": true,
+      "public_socks": [
+        {
+          "name": "router",
+          "listen": "0.0.0.0",
+          "port": 1080,
+          "username": "router",
+          "password": "change-me"
+        }
+      ]
+    },
+    "users": [
+      {
+        "email": "example",
+        "uuid": "00000000-0000-4000-8000-000000000000",
+        "enabled": true,
+        "quota_bytes": 0,
+        "download_mbps": 0,
+        "upload_mbps": 0
+      }
+    ],
+    "outbounds": {
+      "proxy": {
+        "tag": "proxy",
+        "type": "vless-ws-tls",
+        "address": "172.64.155.209",
+        "port": 443,
+        "uuid": "00000000-0000-4000-8000-000000000000",
+        "server_name": "edge.velamkon.lol",
+        "host": "edge.velamkon.lol",
+        "path": "/edge",
+        "interface": "tun0",
+        "mux_concurrency": 16
+      },
+      "fallback": {
+        "tag": "priority-proxy",
+        "type": "vless-ws",
+        "address": "185.143.232.253",
+        "port": 80,
+        "uuid": "00000000-0000-4000-8000-000000000000",
+        "host": "dl3.farsdroid.site",
+        "path": "/"
+      }
+    },
+    "routing": {
+      "block_udp_443": true,
+      "direct_domains": [
+        "full:chat.snappgrocery.net",
+        "domain:chat.snappgrocery.net"
+      ],
+      "direct_ips": [
+        "203.0.113.1/32"
+      ],
+      "block_domains": [
+        "geosite:category-ir",
+        "regexp:.*\\.ir$"
+      ],
+      "block_ips": [
+        "geoip:ir"
+      ],
+      "ai_domains": [
+        "domain:chatgpt.com",
+        "domain:openai.com",
+        "domain:claude.ai",
+        "domain:cursor.com"
+      ]
+    }
+  },
+  "tunnels": [
+    {
+      "name": "company",
+      "type": "openvpn",
+      "interface": "tun0",
+      "systemd_unit": "openvpn@company",
+      "priority": 10
+    },
+    {
+      "name": "backup",
+      "type": "openvpn",
+      "interface": "tun1",
+      "systemd_unit": "openvpn@client-tun1",
+      "priority": 20
+    }
+  ],
+  "failover": {
+    "enabled": true,
+    "probe_ip": "172.64.155.209",
+    "probe_port": 443,
+    "probes": [
+      {
+        "address": "172.64.155.209",
+        "port": 443
+      },
+      {
+        "address": "104.18.32.47",
+        "port": 443
+      },
+      {
+        "address": "162.159.140.245",
+        "port": 443
+      }
+    ],
+    "interval_seconds": 15,
+    "confirmations": 4,
+    "cooldown_seconds": 300,
+    "fallback_outbound_tag": "priority-proxy"
+  }
+}

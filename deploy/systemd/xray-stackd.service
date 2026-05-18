@@ -1,0 +1,21 @@
+[Unit]
+Description=Xray Stack Go Control Plane
+After=network-online.target xray.service openvpn@company.service openvpn@client-tun1.service
+Wants=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+EnvironmentFile=-/etc/default/xray-stackd
+ExecStart=/usr/local/bin/xray-stackd -config /usr/local/etc/xray-stack/stack.json $XRAY_STACKD_FLAGS
+Restart=always
+RestartSec=5
+WatchdogSec=30s
+User=root
+LimitNOFILE=1048576
+TasksMax=infinity
+MemoryMax=512M
+MemoryHigh=384M
+
+[Install]
+WantedBy=multi-user.target
