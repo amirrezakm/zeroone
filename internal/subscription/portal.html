@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>{{.Email}} · ZeroOne</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0b0d11;
+    --panel: #14171d;
+    --panel2: #1a1e27;
+    --line: #262b35;
+    --fg: #e8eaf0;
+    --muted: #8a91a3;
+    --accent: #7c9eff;
+    --good: #5cd29c;
+    --warn: #ffb86b;
+    --bad: #ff6b8a;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f5f6f9; --panel:#ffffff; --panel2:#fafbfd; --line:#e5e8ef; --fg:#0e1116; --muted:#5a6376; --accent:#4f6bff; }
+  }
+  *,*::before,*::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    /* System font stack — uses whatever the OS already has installed.
+       No external font download, no FOIT, instant render. */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 Oxygen, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg); color: var(--fg);
+    min-height: 100vh; padding: 16px;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+  .card h2 { margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .stat { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+  .stat:last-child { border-bottom: 0; }
+  .stat .k { color: var(--muted); font-size: 13px; }
+  .stat .v { font-variant-numeric: tabular-nums; font-weight: 500; }
+  .bar { height: 8px; background: var(--panel2); border-radius: 999px; overflow: hidden; margin-top: 10px; }
+  .bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), #b990ff); transition: width .4s ease; }
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .pill.good { background: rgba(92,210,156,.12); color: var(--good); }
+  .pill.bad  { background: rgba(255,107,138,.12); color: var(--bad); }
+  .pill.warn { background: rgba(255,184,107,.12); color: var(--warn); }
+  .copyrow { display: flex; gap: 8px; align-items: stretch; }
+  .copyrow input { flex: 1; min-width: 0; background: var(--panel2); border: 1px solid var(--line); color: var(--fg); border-radius: 10px; padding: 10px 12px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; }
+  .btn { background: var(--accent); color: #fff; border: 0; border-radius: 10px; padding: 0 14px; font-weight: 600; font-size: 13px; cursor: pointer; transition: filter .15s; }
+  .btn:hover { filter: brightness(1.1); }
+  .btn.secondary { background: var(--panel2); color: var(--fg); border: 1px solid var(--line); }
+  .btn.copied { background: var(--good); }
+  .qr { display: flex; justify-content: center; padding: 12px; background: #fff; border-radius: 12px; margin: 14px auto 0; max-width: 260px; }
+  .qr canvas { display: block; max-width: 100%; height: auto; }
+  details { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+  details:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+  summary { cursor: pointer; font-weight: 600; padding: 8px 0; user-select: none; }
+  details ol { padding-inline-start: 22px; margin: 6px 0 10px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+  details a { color: var(--accent); text-decoration: none; }
+  details a:hover { text-decoration: underline; }
+  footer { text-align: center; color: var(--muted); font-size: 11px; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Hi {{.Email}}</h1>
+  <p class="sub">Your subscription dashboard — usage, connection link, and import instructions.</p>
+
+  <div class="card">
+    <h2>Account</h2>
+    <div class="stat"><span class="k">Status</span>
+      <span class="v">
+        {{if .Enabled}}<span class="pill good">Active</span>{{else}}<span class="pill bad">Disabled</span>{{end}}
+      </span>
+    </div>
+    <div class="stat"><span class="k">Download (total)</span><span class="v" id="dl"></span></div>
+    <div class="stat"><span class="k">Upload (total)</span><span class="v" id="ul"></span></div>
+    <div class="stat"><span class="k">Combined usage</span><span class="v" id="used"></span></div>
+    {{if gt .Quota 0}}
+    <div class="stat"><span class="k">Quota</span><span class="v" id="quota"></span></div>
+    <div class="bar"><i id="bar"></i></div>
+    {{else}}
+    <div class="stat"><span class="k">Quota</span><span class="v"><span class="pill warn">Unlimited</span></span></div>
+    {{end}}
+    {{if gt .DownloadMbps 0}}
+    <div class="stat"><span class="k">Download speed cap</span><span class="v">{{.DownloadMbps}} Mbps</span></div>
+    {{end}}
+    {{if gt .UploadMbps 0}}
+    <div class="stat"><span class="k">Upload speed cap</span><span class="v">{{.UploadMbps}} Mbps</span></div>
+    {{end}}
+  </div>
+
+  <div class="card">
+    <h2>Subscription URL</h2>
+    <div class="copyrow">
+      <input id="suburl" readonly value="{{.BaseURL}}/sub/{{.Token}}">
+      <button class="btn" onclick="copy('suburl', this)">Copy</button>
+    </div>
+    <div class="qr"><canvas id="qr"></canvas></div>
+    <p class="sub" style="margin-top:10px;margin-bottom:0">Import this URL into your client — the server list and usage info update automatically.</p>
+  </div>
+
+  <div class="card">
+    <h2>How to import</h2>
+
+    <details open>
+      <summary>📱 Hiddify Next (Android / iOS / Windows / macOS)</summary>
+      <ol>
+        <li>Open Hiddify Next.</li>
+        <li>Tap <b>+</b> → <b>Add From URL</b>.</li>
+        <li>Paste the subscription URL above and confirm.</li>
+        <li>Pick a server from the list and connect.</li>
+      </ol>
+    </details>
+
+    <details>
+      <summary>🖥 v2rayN (Windows)</summary>
+      <ol>
+        <li>Open v2rayN → <b>Subscription</b> → <b>Subscription group setting</b>.</li>
+        <li>Click <b>Add</b>, paste the subscription URL into <b>URL</b>, give it a remark.</li>
+        <li>OK → then <b>Subscription → Update subscription content (Without proxy)</b>.</li>
+        <li>Double-click any server in the list to activate it.</li>
+      </ol>
+    </details>
+
+    <details>
+      <summary>📦 NekoBox / NekoRay (Windows / Linux)</summary>
+      <ol>
+        <li>Open the app → <b>Subscription Groups</b>.</li>
+        <li><b>New</b> → set a name and paste the subscription URL.</li>
+        <li>Save, then right-click the group → <b>Update</b>.</li>
+      </ol>
+    </details>
+
+    <details>
+      <summary>📱 V2RayNG (Android)</summary>
+      <ol>
+        <li>Tap the menu (top-left) → <b>Subscription group setting</b>.</li>
+        <li>Tap <b>+</b>, paste the URL, give it a name.</li>
+        <li>Back → menu → <b>Update subscriptions</b>.</li>
+        <li>Pick a server and connect.</li>
+      </ol>
+    </details>
+
+    <details>
+      <summary>🍎 Streisand / Shadowrocket (iOS)</summary>
+      <ol>
+        <li>Long-press the QR code above and choose to open in your client, or copy the URL.</li>
+        <li>If the app didn't open, paste the URL inside the app via <b>Add Profile → Subscribe</b>.</li>
+        <li>After it refreshes, pick a server and connect.</li>
+      </ol>
+    </details>
+
+    <details>
+      <summary>🧪 Clash Meta / Mihomo</summary>
+      <ol>
+        <li>Open Clash Meta → <b>Profiles</b> → <b>New Profile from URL</b>.</li>
+        <li>Paste the URL. The app pulls the YAML profile automatically.</li>
+        <li>Select the <b>ZeroOne</b> group and choose a server inside it.</li>
+      </ol>
+    </details>
+  </div>
+
+  <footer>If your subscription link is exposed and needs rotating, contact your admin.</footer>
+</div>
+
+<script>{{.QRCodeJS}}</script>
+<script>
+const FMT = (b) => {
+  if (!b) return "0 B";
+  const u = ["B","KB","MB","GB","TB"]; let i = 0; let n = Number(b);
+  while (n >= 1024 && i < u.length-1) { n /= 1024; i++; }
+  return n.toFixed(n < 10 && i > 0 ? 2 : (n < 100 ? 1 : 0)) + " " + u[i];
+};
+const D = {{.AllJSON}};
+document.getElementById("dl").textContent = FMT(D.Download);
+document.getElementById("ul").textContent = FMT(D.Upload);
+document.getElementById("used").textContent = FMT(D.Used);
+const quotaEl = document.getElementById("quota");
+const barEl = document.getElementById("bar");
+if (quotaEl) {
+  quotaEl.textContent = FMT(D.Quota);
+  const pct = D.Quota > 0 ? Math.min(100, (D.Used / D.Quota) * 100) : 0;
+  if (barEl) barEl.style.width = pct + "%";
+}
+
+const subURL = document.getElementById("suburl").value;
+QRCode.toCanvas(document.getElementById("qr"), subURL, { width: 220, margin: 1, color: { dark: "#0b0d11", light: "#ffffff" } });
+
+function copy(id, btn) {
+  const el = document.getElementById(id);
+  el.select(); el.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(el.value).then(() => {
+    const t = btn.textContent;
+    btn.textContent = "Copied ✓";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = t; btn.classList.remove("copied"); }, 1400);
+  });
+}
+</script>
+</body>
+</html>

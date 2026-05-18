@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>پایانه خوش</title>
+  <meta name="description" content="زیرساخت سبک برای وضعیت سرویس و ارتباطات عملیاتی.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <style>
+    :root {
+      color-scheme: light;
+      --fg: #1f2933;
+      --muted: #64748b;
+      --line: #e5e7eb;
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --accent: #2563eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: Tahoma, Arial, sans-serif;
+      line-height: 1.8;
+    }
+    main {
+      width: min(720px, calc(100% - 32px));
+      padding: 42px 0;
+    }
+    .mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: var(--accent);
+      color: white;
+      font-weight: 700;
+      margin-bottom: 22px;
+    }
+    h1 {
+      font-size: 28px;
+      margin: 0 0 10px;
+      letter-spacing: 0;
+    }
+    p {
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px 20px;
+      display: grid;
+      gap: 8px;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 14px;
+    }
+    .label { color: var(--muted); }
+    .value { direction: ltr; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="mark">PK</div>
+    <h1>پایانه خوش</h1>
+    <p>این صفحه برای وضعیت عمومی سرویس و بررسی دسترسی شبکه استفاده می‌شود.</p>
+    <section class="panel" aria-label="وضعیت سرویس">
+      <div class="row"><span class="label">وضعیت</span><span class="value">online</span></div>
+      <div class="row"><span class="label">منطقه</span><span class="value">edge</span></div>
+    </section>
+  </main>
+</body>
+</html>

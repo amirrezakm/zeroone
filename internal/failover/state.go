@@ -40,7 +40,40 @@ func CurrentMode(cfg stack.Config) Mode {
 	return mode
 }
 
-func DesiredMode(cfg stack.Config, checks []tunnel.Check) Mode {
+// tunnelHealthy reports whether the named tunnel (by config name) is healthy.
+// Returns (healthy, interfaceName, found).
+func tunnelHealthy(cfg stack.Config, checks []tunnel.Check, name string) (bool, string, bool) {
+	for _, t := range cfg.Tunnels {
+		if t.Name != name {
+			continue
+		}
+		for _, c := range checks {
+			if c.Interface == t.Interface {
+				return c.Healthy, t.Interface, true
+			}
+		}
+		return false, t.Interface, true
+	}
+	return false, "", false
+}
+
+// interfaceHealthy reports whether the given interface is in the check list as healthy.
+func interfaceHealthy(checks []tunnel.Check, iface string) bool {
+	if iface == "" {
+		return false
+	}
+	for _, c := range checks {
+		if c.Interface == iface {
+			return c.Healthy
+		}
+	}
+	return false
+}
+
+// firstHealthyMode walks tunnels in priority order, returning the proxy mode
+// for the first healthy one. Falls back to the configured fallback outbound
+// tag when nothing is healthy.
+func firstHealthyMode(cfg stack.Config, checks []tunnel.Check) Mode {
 	for _, t := range cfg.Tunnels {
 		for _, c := range checks {
 			if c.Interface == t.Interface && c.Healthy {
@@ -49,6 +82,31 @@ func DesiredMode(cfg stack.Config, checks []tunnel.Check) Mode {
 		}
 	}
 	return Mode{OutboundTag: cfg.Failover.FallbackOutboundTag}
+}
+
+// DesiredMode decides which proxy mode the failover loop wants to be in.
+// Honors cfg.Failover.Mode: auto walks priority order, preferred biases toward
+// PreferredTunnel when healthy, manual sticks with the current interface as
+// long as it's healthy (drifts only on failure, doesn't auto-return).
+func DesiredMode(cfg stack.Config, checks []tunnel.Check) Mode {
+	mode := cfg.Failover.EffectiveMode()
+	switch mode {
+	case stack.FailoverModePreferred:
+		if cfg.Failover.PreferredTunnel != "" {
+			if healthy, iface, ok := tunnelHealthy(cfg, checks, cfg.Failover.PreferredTunnel); ok && healthy {
+				return Mode{OutboundTag: cfg.Xray.Outbounds.Proxy.Tag, Interface: iface}
+			}
+		}
+		return firstHealthyMode(cfg, checks)
+	case stack.FailoverModeManual:
+		current := CurrentMode(cfg)
+		if current.Interface != "" && interfaceHealthy(checks, current.Interface) {
+			return current
+		}
+		return firstHealthyMode(cfg, checks)
+	default:
+		return firstHealthyMode(cfg, checks)
+	}
 }
 
 func Decide(cfg stack.Config, state State, checks []tunnel.Check, now time.Time) (Decision, State) {
@@ -62,7 +120,21 @@ func Decide(cfg stack.Config, state State, checks []tunnel.Check, now time.Time)
 		decision.Reason = "already in desired mode"
 		return decision, state
 	}
-	if cfg.Failover.CooldownSeconds > 0 && state.LastChangeUnix > 0 && now.Unix()-state.LastChangeUnix < int64(cfg.Failover.CooldownSeconds) {
+	// Bypass cooldown when returning to the user's preferred tunnel: cooldown
+	// exists to debounce flapping between equally-good tunnels, but the user
+	// has explicitly told us "always prefer X." Without this, auto-return can
+	// take up to confirmations*interval + cooldown (~6min on default config),
+	// which feels broken.
+	skipCooldown := false
+	if cfg.Failover.EffectiveMode() == stack.FailoverModePreferred && cfg.Failover.PreferredTunnel != "" {
+		for _, t := range cfg.Tunnels {
+			if t.Name == cfg.Failover.PreferredTunnel && t.Interface == desired.Interface {
+				skipCooldown = true
+				break
+			}
+		}
+	}
+	if !skipCooldown && cfg.Failover.CooldownSeconds > 0 && state.LastChangeUnix > 0 && now.Unix()-state.LastChangeUnix < int64(cfg.Failover.CooldownSeconds) {
 		decision.Pending = true
 		decision.CooldownRemainingSeconds = int64(cfg.Failover.CooldownSeconds) - (now.Unix() - state.LastChangeUnix)
 		decision.Reason = "cooldown active"

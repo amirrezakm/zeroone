@@ -52,3 +52,7 @@ rootfs/usr/local/bin/xray-stackd
 rootfs/usr/local/etc/xray-stack/
 rootfs/usr/local/share/xray-stack-ui/
 rootfs/etc/systemd/system/xray-stackd.service
+
+# Local-built binaries
+/edge-relay
+/xray-stackd

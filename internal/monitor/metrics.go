@@ -31,9 +31,13 @@ type RAM struct {
 	Detail     string  `json:"detail"`
 }
 type InterfaceStat struct {
-	Name    string `json:"name"`
-	RXBytes int64  `json:"rx_bytes"`
-	TXBytes int64  `json:"tx_bytes"`
+	Name      string `json:"name"`
+	RXBytes   int64  `json:"rx_bytes"`
+	TXBytes   int64  `json:"tx_bytes"`
+	RXDropped int64  `json:"rx_dropped"`
+	TXDropped int64  `json:"tx_dropped"`
+	RXErrors  int64  `json:"rx_errors"`
+	TXErrors  int64  `json:"tx_errors"`
 }
 type Activity struct {
 	Time        string `json:"time"`
@@ -148,11 +152,19 @@ func ram() RAM {
 }
 
 func ifaceStat(name string) InterfaceStat {
-	b, err := os.ReadFile("/sys/class/net/" + name + "/statistics/rx_bytes")
-	rx := parseInt(b, err)
-	b, err = os.ReadFile("/sys/class/net/" + name + "/statistics/tx_bytes")
-	tx := parseInt(b, err)
-	return InterfaceStat{Name: name, RXBytes: rx, TXBytes: tx}
+	read := func(field string) int64 {
+		b, err := os.ReadFile("/sys/class/net/" + name + "/statistics/" + field)
+		return parseInt(b, err)
+	}
+	return InterfaceStat{
+		Name:      name,
+		RXBytes:   read("rx_bytes"),
+		TXBytes:   read("tx_bytes"),
+		RXDropped: read("rx_dropped"),
+		TXDropped: read("tx_dropped"),
+		RXErrors:  read("rx_errors"),
+		TXErrors:  read("tx_errors"),
+	}
 }
 
 func parseInt(b []byte, err error) int64 {

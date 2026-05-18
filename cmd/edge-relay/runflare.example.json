@@ -1,0 +1,13 @@
+{
+  "name": "xray-edge-relay",
+  "type": "docker",
+  "dockerfile": "cmd/edge-relay/Dockerfile",
+  "context": ".",
+  "port": 8080,
+  "env": {
+    "ORIGIN_HOST": "185.128.139.68",
+    "WS_PATH": "/vless",
+    "XHTTP_PATH": "/api/v1/events",
+    "LOG_LEVEL": "info"
+  }
+}

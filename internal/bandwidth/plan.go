@@ -88,11 +88,13 @@ func TCCommands(device string, limits []Limit) []string {
 	}
 	commands := []string{
 		fmt.Sprintf("nft -f <generated xray_bw script>"),
-		fmt.Sprintf("tc qdisc replace dev %s root handle 1: htb default 999", device),
+		fmt.Sprintf("tc qdisc del dev %s root", device),
+		fmt.Sprintf("tc qdisc del dev %s clsact", device),
+		fmt.Sprintf("tc qdisc add dev %s root handle 1: htb default 999", device),
 		fmt.Sprintf("tc class replace dev %s parent 1: classid 1:1 htb rate %s ceil %s", device, defaultRate, defaultRate),
 		fmt.Sprintf("tc class replace dev %s parent 1:1 classid 1:999 htb rate %s ceil %s", device, defaultRate, defaultRate),
 		fmt.Sprintf("tc qdisc replace dev %s parent 1:999 fq", device),
-		fmt.Sprintf("tc qdisc replace dev %s clsact", device),
+		fmt.Sprintf("tc qdisc add dev %s clsact", device),
 	}
 	for i, limit := range limits {
 		mark := baseMark + i + 1

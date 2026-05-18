@@ -1,6 +1,55 @@
 {
   "server": {
     "public_ip": "185.128.139.68",
+    "client_endpoints": [
+      {
+        "name": "pars-pack",
+        "host": "edge.payanekhosh.ir",
+        "port": 443,
+        "network": "xhttp",
+        "path": "/api/v1/events",
+        "mode": "stream-up",
+        "tls": true,
+        "enabled": true,
+        "extra": {
+          "x_padding_bytes": "100-1000",
+          "xmux": {
+            "max_concurrency": "16-24",
+            "c_max_lifetime_ms": 60000,
+            "h_max_request_times": 600
+          }
+        },
+        "link_compat": true
+      },
+      {
+        "name": "runflare-ws",
+        "host": "your-app.runflare.run",
+        "port": 443,
+        "network": "ws",
+        "path": "/vless",
+        "tls": true,
+        "enabled": false
+      },
+      {
+        "name": "runflare-xhttp",
+        "host": "your-app.runflare.run",
+        "port": 443,
+        "network": "xhttp",
+        "path": "/api/v1/events",
+        "mode": "stream-up",
+        "tls": true,
+        "enabled": false,
+        "extra": {
+          "x_padding_bytes": "100-1000",
+          "xmux": {
+            "max_concurrency": "16-24",
+            "c_max_lifetime_ms": 60000,
+            "h_max_request_times": 600
+          }
+        },
+        "link_compat": true
+      }
+    ],
     "admin_listen": "127.0.0.1:8091",
     "xray_config_path": "/usr/local/etc/xray/config.json",
     "xray_binary": "/usr/local/bin/xray",
@@ -26,6 +75,16 @@
     "inbounds": {
       "vless_ws_port": 443,
       "vless_xhttp_port": 3002,
+      "vless_xhttp_path": "/api/v1/events",
+      "vless_xhttp_mode": "auto",
+      "vless_xhttp_tuning": {
+        "x_padding_bytes": "100-1000",
+        "sc_max_buffered_posts": 30,
+        "sc_max_each_post_bytes": "1000000",
+        "sc_stream_up_server_secs": "20-80",
+        "keep_alive_period": 30
+      },
+      "vless_xhttp_link_compat": true,
       "public_socks": [
         {
           "name": "router",

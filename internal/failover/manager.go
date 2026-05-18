@@ -47,12 +47,22 @@ func (m *Manager) runOnce(ctx context.Context, cfg stack.Config) {
 	checks := tunnel.CheckAll(ctx, cfg.Tunnels, cfg.Failover.ProbeTargets())
 	decision, nextState := Decide(cfg, m.State, checks, time.Now())
 	m.setState(cfg.Server.FailoverStatePath, nextState)
+	// Always emit a heartbeat at INFO so operators can grep for "failover tick"
+	// and confirm the loop is alive. Compact summary: which tunnels are healthy
+	// and what we're going to do.
+	healthSummary := make([]string, 0, len(checks))
+	for _, c := range checks {
+		state := "down"
+		if c.Healthy {
+			state = "up"
+		}
+		healthSummary = append(healthSummary, c.Interface+":"+state)
+	}
+	slog.Info("failover tick", "mode", cfg.Failover.EffectiveMode(), "preferred", cfg.Failover.PreferredTunnel, "current", decision.Current.Interface, "desired", decision.Desired.Interface, "reason", decision.Reason, "pending", decision.Pending, "tunnels", healthSummary)
 	if decision.Pending {
-		slog.Info("failover decision", "current", decision.Current, "desired", decision.Desired, "pending", decision.Pending, "confirmations", decision.ConfirmationCount, "reason", decision.Reason)
 		return
 	}
 	if decision.Effective == decision.Current {
-		slog.Debug("failover decision", "current", decision.Current, "desired", decision.Desired, "reason", decision.Reason)
 		return
 	}
 
@@ -60,14 +70,31 @@ func (m *Manager) runOnce(ctx context.Context, cfg stack.Config) {
 	ApplyMode(&nextCfg, decision.Effective)
 	if err := stack.Save(m.ConfigPath, nextCfg); err != nil {
 		slog.Error("failover save config", "err", err, "effective", decision.Effective)
+		m.recordTransition(cfg, decision, err)
 		return
 	}
 	plan, err := m.Xray.Apply(ctx, nextCfg)
 	if err != nil {
 		slog.Error("failover apply xray", "err", err, "effective", decision.Effective)
+		m.recordTransition(cfg, decision, err)
 		return
 	}
 	slog.Info("failover applied", "from", decision.Current, "to", decision.Effective, "changed", plan.Changed, "backup", plan.BackupPath)
+	m.recordTransition(cfg, decision, nil)
+}
+
+func (m *Manager) recordTransition(cfg stack.Config, d Decision, applyErr error) {
+	path := cfg.Server.FailoverHistoryPath
+	if path == "" {
+		return
+	}
+	entry := Entry{T: time.Now().Unix(), From: d.Current, To: d.Effective, Reason: d.Reason}
+	if applyErr != nil {
+		entry.Error = applyErr.Error()
+	}
+	if err := AppendHistory(path, entry, DefaultHistoryRetention); err != nil {
+		slog.Warn("failover history append failed", "path", path, "err", err)
+	}
 }
 
 func (m *Manager) loadState(path string) {

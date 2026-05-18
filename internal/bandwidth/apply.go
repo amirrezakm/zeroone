@@ -84,11 +84,13 @@ func applyCommands(device string, limits []Limit) ([]command, func(), error) {
 	}
 	commands = append(commands,
 		command{name: "nft", args: []string{"-f", tmp.Name()}, description: "nft -f <generated xray_bw script>"},
-		command{name: "tc", args: []string{"qdisc", "replace", "dev", device, "root", "handle", "1:", "htb", "default", "999"}, description: fmt.Sprintf("tc qdisc replace dev %s root handle 1: htb default 999", device)},
+		command{name: "tc", args: []string{"qdisc", "del", "dev", device, "root"}, description: fmt.Sprintf("tc qdisc del dev %s root", device), ignoreError: true},
+		command{name: "tc", args: []string{"qdisc", "del", "dev", device, "clsact"}, description: fmt.Sprintf("tc qdisc del dev %s clsact", device), ignoreError: true},
+		command{name: "tc", args: []string{"qdisc", "add", "dev", device, "root", "handle", "1:", "htb", "default", "999"}, description: fmt.Sprintf("tc qdisc add dev %s root handle 1: htb default 999", device)},
 		command{name: "tc", args: []string{"class", "replace", "dev", device, "parent", "1:", "classid", "1:1", "htb", "rate", defaultRate, "ceil", defaultRate}, description: fmt.Sprintf("tc class replace dev %s parent 1: classid 1:1 htb rate %s ceil %s", device, defaultRate, defaultRate)},
 		command{name: "tc", args: []string{"class", "replace", "dev", device, "parent", "1:1", "classid", "1:999", "htb", "rate", defaultRate, "ceil", defaultRate}, description: fmt.Sprintf("tc class replace dev %s parent 1:1 classid 1:999 htb rate %s ceil %s", device, defaultRate, defaultRate)},
 		command{name: "tc", args: []string{"qdisc", "replace", "dev", device, "parent", "1:999", "fq"}, description: fmt.Sprintf("tc qdisc replace dev %s parent 1:999 fq", device)},
-		command{name: "tc", args: []string{"qdisc", "replace", "dev", device, "clsact"}, description: fmt.Sprintf("tc qdisc replace dev %s clsact", device)},
+		command{name: "tc", args: []string{"qdisc", "add", "dev", device, "clsact"}, description: fmt.Sprintf("tc qdisc add dev %s clsact", device)},
 	)
 	for i, limit := range limits {
 		mark := fmt.Sprintf("%d", baseMark+i+1)
