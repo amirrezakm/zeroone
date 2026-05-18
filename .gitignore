@@ -56,3 +56,8 @@ rootfs/etc/systemd/system/xray-stackd.service
 # Local-built binaries
 /edge-relay
 /xray-stackd
+/cmd/edge-relay/edge-relay
+/cmd/xray-stackd/xray-stackd
+
+# Release archives
+*.tar.gz

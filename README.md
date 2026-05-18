@@ -1,28 +1,69 @@
 # xray-stack-zeroone
 
-Local development snapshot for the ZeroOne Xray stack on `185.128.139.68`.
+Go control plane, edge relay, and web panel for the ZeroOne Xray stack
+(production host `185.128.139.68`). The Python/Bash control plane was
+replaced by this Go service on 2026-05-10 — see
+[`docs/migration-cutover.md`](docs/migration-cutover.md).
 
 ## Layout
 
-- `cmd/xray-stackd/`: Go control plane for the panel, Xray apply, failover, and VPN supervision.
-- `web/app/`: production panel UI served by `xray-stackd`.
-- `config/stack.local.json`: imported production stack config for local development.
-- `rootfs/`: reduced server filesystem snapshot for nginx, OpenVPN, and systemd reference.
-- `rootfs/usr/local/etc/xray/config.json`: live Xray config snapshot. Sensitive; ignored by git.
-- `rootfs/etc/openvpn/`: OpenVPN configs and route hooks. Sensitive; ignored by git.
-- `rootfs/etc/systemd/system/`: service units and overrides.
-- `rootfs/etc/nginx/`: nginx config for Go panel exposure.
-- `config/examples/config.example.json`: sanitized example Xray config.
+- `cmd/xray-stackd/` — Go control plane daemon. Renders Xray config, runs the
+  admin API, supervises failover/VPN/relay, and serves the web panel.
+- `cmd/edge-relay/` — small reverse proxy fronted by a managed PaaS
+  (runflare, liara, …) so an Xray inbound can be exposed on a TLS-only
+  platform. See [`docs/runflare-edge-deploy.md`](docs/runflare-edge-deploy.md).
+- `internal/` — control-plane packages: `stack` (config), `xray` (config
+  generation), `api` (HTTP), `auth`, `failover`, `relay`, `tunnel`,
+  `bandwidth`, `enforce`, `usage`, `monitor`, `metrics`, `analytics`,
+  `audit`, `events`, `notify`, `presence`, `sessions`, `snapshots`,
+  `stats`, `subscription`, `firewall`, `links`, `system`.
+- `web/app/` — React/Vite panel. Built into `web/app/dist/` and served by
+  `xray-stackd` at `/`.
+- `config/stack.example.json` — sanitized example config; copy to
+  `config/stack.local.json` for local dev (gitignored).
+- `config/examples/config.example.json` — sanitized example Xray config.
+- `deploy/systemd/xray-stackd.service` — production unit file.
+- `deploy/DEPLOY.md` — production install / upgrade notes.
+- `rootfs/` — reduced server snapshot (nginx defaults, fallback site under
+  `var/www/html`). Live xray configs, OpenVPN creds, and other sensitive
+  files live here on disk for local reference but are gitignored.
+- `scripts/` — `build.sh`, `check.sh`, `package.sh`,
+  `install-local-layout.sh`, `sync-from-server.sh`, `import-live-stack.py`.
 
-## Development Workflow
+## Quick start
 
-1. Edit Go/backend code, UI, or stack config locally.
-2. Run syntax checks:
-   - `scripts/check.sh`
-3. Sync from server only when intentionally refreshing the snapshot:
-   - `scripts/sync-from-server.sh`
-4. Deploy intentionally with a reviewed diff. Do not rsync secrets blindly into another machine.
+```bash
+# Run tests + build a sample xray config
+scripts/check.sh
 
-## Notes
+# Build the production binary + panel into dist/
+scripts/build.sh
 
-This repo currently contains a local snapshot for development. Real credentials, usage counters, OpenVPN auth files, and live Xray configs are present on disk under `rootfs/` for local reference but are excluded from git by default.
+# Package a release tarball for the server
+scripts/package.sh
+```
+
+Run the daemon locally against a local config:
+
+```bash
+go run ./cmd/xray-stackd -config config/stack.local.json
+```
+
+Useful flags: `-print-xray` (render the generated Xray config and exit),
+`-allow-apply` (let endpoints mutate live Xray/systemd state),
+`-manage-failover`, `-manage-vpn`, `-manage-relay`.
+
+## Sync from the live server
+
+`scripts/sync-from-server.sh` rsyncs the live `/etc` and `/usr/local`
+config into `rootfs/`. Run only when you intend to refresh the snapshot —
+it overwrites local edits in `rootfs/`. Never rsync the result blindly
+back into another machine.
+
+## Security notes
+
+- Live secrets (Xray configs, OpenVPN auth/keys, htpasswd, subscription
+  user pages) sit under `rootfs/` for local reference and are all
+  gitignored. Check `.gitignore` before adding anything under `rootfs/`.
+- `config/stack.local.json` is gitignored; commit only
+  `config/stack.example.json` changes.
