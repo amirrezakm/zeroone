@@ -12,6 +12,23 @@ import (
 //go:embed minimal-stack.json
 var minimalStackJSON []byte
 
+// Template/legacy defaults that env overrides are allowed to replace.
+// Operator-pinned JSON values (anything not in these sets) are left
+// alone. Keep the container-template values here in sync with
+// minimal-stack.json.
+var (
+	defaultAdminListens = map[string]bool{
+		"":               true,
+		"127.0.0.1:8091": true, // legacy host default
+		"0.0.0.0:8000":   true, // minimal-stack.json container template
+	}
+	defaultFailoverStatePaths = map[string]bool{
+		"": true,
+		"/var/lib/xray-stack/failover-state.json": true, // legacy host default
+		"/var/lib/zeroone/failover-state.json":    true, // minimal-stack.json container template
+	}
+)
+
 // writeMinimalConfig writes the embedded minimal stack.json template to
 // path. The template is JSON-validated against the Config schema as a
 // sanity check on every build.
@@ -28,7 +45,7 @@ func writeMinimalConfig(path string) error {
 // the operator can tweak paths via .env without editing the JSON file.
 func applyEnvOverrides(cfg *stack.Config) {
 	if v := os.Getenv("ZEROONE_ADMIN_LISTEN"); v != "" {
-		if cfg.Server.AdminListen == "" || cfg.Server.AdminListen == "127.0.0.1:8091" {
+		if defaultAdminListens[cfg.Server.AdminListen] {
 			cfg.Server.AdminListen = v
 		}
 	}
@@ -45,7 +62,7 @@ func applyEnvOverrides(cfg *stack.Config) {
 		cfg.Server.BandwidthDevice = v
 	}
 	if v := os.Getenv("ZEROONE_STATE_DIR"); v != "" {
-		if cfg.Server.FailoverStatePath == "" || cfg.Server.FailoverStatePath == "/var/lib/xray-stack/failover-state.json" {
+		if defaultFailoverStatePaths[cfg.Server.FailoverStatePath] {
 			cfg.Server.FailoverStatePath = filepath.Join(v, "failover-state.json")
 		}
 	}
