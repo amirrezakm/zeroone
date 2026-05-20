@@ -14,6 +14,15 @@
 
 ## [Unreleased]
 
+### Features
+
+- offline install path for air-gapped Iranian deployments via
+  `scripts/offline-bundle.sh` + `scripts/install-offline.sh`, with the
+  full flow documented in `docs/OFFLINE-INSTALL.md`. Pulls the image
+  through the Runflare Docker mirror, packages compose+env+installer
+  into a single tarball, and loads everything on the destination via
+  `docker load` — no GHCR access required.
+
 ### Breaking Changes
 
 - rebrand: rename daemon binary `xray-stackd` → `zeroone`, npm package

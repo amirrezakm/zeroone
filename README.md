@@ -16,9 +16,12 @@
 - **One-line installer** that drops a `zeroone` CLI at
   `/usr/local/bin/zeroone` and gets the panel running in under 90 seconds.
 
-## Install
+## 🚀 Install
 
-On a clean Ubuntu / Debian / RHEL / Alma / Rocky / Alpine VPS:
+### Standard install (one line)
+
+On a clean Ubuntu / Debian / RHEL / Alma / Rocky / Alpine VPS with
+internet access:
 
 ```bash
 sudo bash -c "$(curl -sSL https://raw.githubusercontent.com/amirrezakm/zeroone/main/scripts/install.sh)" @ install
@@ -44,7 +47,39 @@ zeroone backup -o /root/zeroone-backup.tgz
 See [`docs/INSTALL.md`](docs/INSTALL.md) for the full install guide and
 [`docs/CLI.md`](docs/CLI.md) for every subcommand.
 
-## Manual / Docker Compose install
+### 🇮🇷 Offline install (for Iranian servers / no GHCR access)
+
+**If your server is inside Iran or otherwise can't reach
+`ghcr.io`, the one-line installer above will fail** — the image pull
+goes through GitHub's registry which is blocked from many Iranian
+networks. Use the **offline install** instead.
+
+Every release ships a **prebuilt offline bundle** as a GitHub asset.
+You download it on any machine with internet, SFTP it to your
+server, and run the installer locally — no registry access needed
+on the destination.
+
+**Three steps, ~3 minutes:**
+
+```bash
+# 1. Download from https://github.com/amirrezakm/zeroone/releases/latest
+#    (pick the file matching your server's arch — amd64 or arm64)
+
+# 2. Upload to the server
+sftp root@YOUR_SERVER_IP
+sftp> put zeroone-offline-*.tar.gz
+
+# 3. SSH in and install
+tar -xzf zeroone-offline-*.tar.gz
+sudo bash install-offline.sh
+```
+
+The bundled `install-offline.sh` will even install Docker for you
+via the Runflare Linux mirror if it's missing on the destination —
+no manual setup required. Full guide:
+**[`docs/OFFLINE-INSTALL.md`](docs/OFFLINE-INSTALL.md)** 📦
+
+### Manual / Docker Compose install
 
 ```bash
 mkdir -p /opt/zeroone /var/lib/zeroone
@@ -53,7 +88,7 @@ curl -sSL https://raw.githubusercontent.com/amirrezakm/zeroone/main/docker/.env.
 cd /opt/zeroone && docker compose up -d
 ```
 
-## Host install (no Docker)
+### Host install (no Docker)
 
 For advanced operators who want OpenVPN failover, kernel-level bandwidth
 shaping (`nft` / `tc`), or systemd-managed tunnels, see
@@ -84,6 +119,7 @@ shaping (`nft` / `tc`), or systemd-managed tunnels, see
 - `web/app/` — React/Vite panel.
 - `docker/` — Dockerfile, compose file, env example.
 - `scripts/` — `install.sh` (the one-line installer + CLI wrapper),
+  `offline-bundle.sh` + `install-offline.sh` (air-gapped flow),
   `build.sh`, `check.sh`, `package.sh`.
 
 ## Development
@@ -113,6 +149,8 @@ process instead of via systemd).
 - [`docs/SECURITY.md`](docs/SECURITY.md) — TLS, reverse proxy, port hardening.
 - [`docs/HOST-INSTALL.md`](docs/HOST-INSTALL.md) — systemd install with
   OpenVPN / failover / bandwidth shaping.
+- [`docs/OFFLINE-INSTALL.md`](docs/OFFLINE-INSTALL.md) — air-gapped
+  install via SFTP + `docker save`/`docker load` (Iranian operators).
 - [`docs/runflare-edge-deploy.md`](docs/runflare-edge-deploy.md) — edge
   relay deployment on PaaS providers.
 

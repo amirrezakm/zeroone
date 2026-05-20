@@ -81,7 +81,7 @@ jobs:
       - name: install shellcheck
         run: sudo apt-get update -qq && sudo apt-get install -y shellcheck
       - name: lint
-        run: shellcheck scripts/install.sh
+        run: shellcheck scripts/install.sh scripts/install-offline.sh scripts/offline-bundle.sh
 
   docker:
     name: docker build smoke

@@ -1,10 +1,16 @@
-# Installing zeroone
+# 🚀 Installing zeroone
 
 This guide covers the Docker-based install. For the bare-metal systemd
 install (with OpenVPN failover, kernel bandwidth shaping, and other
 host-level features), see [`HOST-INSTALL.md`](HOST-INSTALL.md).
 
-## Prerequisites
+> 🇮🇷 **Inside Iran, or any network where `ghcr.io` is blocked?**
+> The one-liner below will fail because Docker can't pull the image.
+> Use the **[offline install guide](OFFLINE-INSTALL.md)** instead —
+> download a prebuilt bundle, SFTP it to your server, install
+> locally. Same end result, no registry access needed.
+
+## 📋 Prerequisites
 
 - Linux x86_64 or aarch64.
 - Kernel ≥ 4.19 (any reasonably modern distro).
@@ -16,7 +22,7 @@ host-level features), see [`HOST-INSTALL.md`](HOST-INSTALL.md).
 Supported distributions: Debian 11+, Ubuntu 20.04+, CentOS / RHEL /
 AlmaLinux / Rocky 8+, Fedora 35+, Alpine 3.18+.
 
-## One-line install
+## ⚡ One-line install
 
 ```bash
 sudo bash -c "$(curl -sSL https://raw.githubusercontent.com/amirrezakm/zeroone/main/scripts/install.sh)" @ install
@@ -34,8 +40,8 @@ What this does:
 7. Self-installs the script as `/usr/local/bin/zeroone` so you have a
    stable CLI.
 
-If the prompt is inconvenient (provisioning scripts, Ansible, etc.),
-pass credentials via environment variables:
+🤖 **Non-interactive (Ansible / provisioning scripts):** pass
+credentials via environment variables:
 
 ```bash
 ZEROONE_ADMIN_USERNAME=admin \
@@ -43,7 +49,7 @@ ZEROONE_ADMIN_PASSWORD='change-me' \
 sudo -E bash -c "$(curl -sSL https://raw.githubusercontent.com/amirrezakm/zeroone/main/scripts/install.sh)" @ install
 ```
 
-## Installing from a fork
+## 🔱 Installing from a fork
 
 If you maintain a fork that publishes its own image to GHCR, point the
 installer at it with `ZEROONE_REPO`. It overrides both the raw URL the
@@ -59,7 +65,7 @@ sudo -E bash -c "$(curl -sSL https://raw.githubusercontent.com/your-fork/zeroone
 For finer-grained control, use `ZEROONE_REPO_RAW` and/or `ZEROONE_IMAGE`
 individually.
 
-## What gets created
+## 📂 What gets created
 
 | Path | Purpose |
 |---|---|
@@ -72,9 +78,9 @@ individually.
 | `/var/lib/zeroone/snapshots/`      | JSON snapshots of every config change. |
 | `/var/lib/zeroone/logs/xray.log`   | Xray stdout/stderr captured by the supervisor. |
 
-Everything stateful lives under `/var/lib/zeroone/`. Back that up.
+💾 Everything stateful lives under `/var/lib/zeroone/`. **Back that up.**
 
-## Manual install (without the one-liner)
+## 🛠 Manual install (without the one-liner)
 
 If you'd rather not pipe a script to `bash`:
 
@@ -102,7 +108,7 @@ sudo curl -fsSL https://raw.githubusercontent.com/amirrezakm/zeroone/main/script
 sudo chmod +x /usr/local/bin/zeroone
 ```
 
-## After install
+## ✅ After install
 
 ```bash
 zeroone status        # container + healthcheck
@@ -114,7 +120,7 @@ zeroone backup -o /root/zeroone-$(date +%F).tgz
 
 See [`CLI.md`](CLI.md) for the full subcommand list.
 
-## Updating
+## ⬆️ Updating
 
 ```bash
 sudo zeroone update
@@ -124,40 +130,40 @@ This re-fetches `docker-compose.yml` and the CLI script from `main`,
 pulls the newest image tag pinned in `/opt/zeroone/.env`
 (`ZEROONE_VERSION`, default `latest`), and restarts the container.
 
-Pin to a specific version for predictability:
+📌 Pin to a specific version for predictability:
 
 ```bash
 sudo sed -i 's/^ZEROONE_VERSION=.*/ZEROONE_VERSION=v0.1.0/' /opt/zeroone/.env
 sudo zeroone restart
 ```
 
-## Uninstalling
+## 🗑 Uninstalling
 
 ```bash
 sudo zeroone uninstall            # stops the container, keeps state
 sudo zeroone uninstall --purge    # also deletes /opt/zeroone and /var/lib/zeroone
 ```
 
-## Troubleshooting
+## 🔧 Troubleshooting
 
-**`zeroone install` says "already installed"**
+**❗ `zeroone install` says "already installed"**
 The compose file already exists at `/opt/zeroone/`. Run `zeroone update`
 to upgrade, or `zeroone uninstall --purge && zeroone install` to start
 over (this deletes all state including admins).
 
-**`docker compose plugin missing`**
+**❗ `docker compose plugin missing`**
 On older systems install it manually:
 ```bash
 sudo apt-get install docker-compose-plugin       # Debian/Ubuntu
 sudo dnf install docker-compose-plugin           # RHEL/Fedora
 ```
 
-**Panel doesn't load**
+**❗ Panel doesn't load**
 Check `zeroone logs`. If you see "config file missing", the auto-init
 should have written `/var/lib/zeroone/stack.json`. Confirm the volume
 mount and that `ZEROONE_AUTO_INIT=1` is in `/opt/zeroone/.env`.
 
-**Forgot admin password**
+**❗ Forgot admin password**
 ```bash
 sudo zeroone cli admin reset-password \
     -config /var/lib/zeroone/stack.json \
@@ -165,7 +171,7 @@ sudo zeroone cli admin reset-password \
     -password 'new-password'
 ```
 
-**Putting the panel behind a TLS reverse proxy**
+**🔒 Putting the panel behind a TLS reverse proxy**
 Bind the daemon to `127.0.0.1` only:
 ```
 ZEROONE_ADMIN_LISTEN=127.0.0.1:8000

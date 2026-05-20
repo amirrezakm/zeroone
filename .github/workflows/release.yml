@@ -349,11 +349,56 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------
-  # 5. Publish the GitHub release with assets.
+  # 5. Build offline install bundles (amd64 + arm64) for air-gapped /
+  #    Iranian deployments. Pulls the image we just pushed from GHCR,
+  #    saves it, and packages it with the compose file + installer so
+  #    operators can `tar -xzf` + `sudo bash install-offline.sh` on a
+  #    server with no registry egress. See docs/OFFLINE-INSTALL.md.
+  # ---------------------------------------------------------------------
+  offline-bundle:
+    name: Build offline bundle (${{ matrix.arch }})
+    needs: [plan, tag, image]
+    if: needs.plan.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.next_tag }}
+          fetch-tags: true
+      - name: log in to ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: build offline bundle
+        env:
+          ZEROONE_VERSION:   ${{ needs.plan.outputs.next_tag }}
+          ZEROONE_ARCH:      ${{ matrix.arch }}
+          ZEROONE_REPO:      ${{ github.repository }}
+          # Pull directly from the image we just pushed in the previous
+          # job — the runner has GHCR access. Operators running this
+          # script themselves default to the Runflare Docker mirror.
+          ZEROONE_IMAGE_SRC: ghcr.io/${{ github.repository }}
+        run: bash scripts/offline-bundle.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: offline-bundle-${{ matrix.arch }}
+          path: |
+            dist/zeroone-offline-*.tar.gz
+            dist/zeroone-offline-*.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  # ---------------------------------------------------------------------
+  # 6. Publish the GitHub release with assets.
   # ---------------------------------------------------------------------
   publish:
     name: Publish GitHub release
-    needs: [plan, tag, image, archive]
+    needs: [plan, tag, image, archive, offline-bundle]
     if: needs.plan.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -361,10 +406,17 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.next_tag }}
           fetch-tags: true
-      - uses: actions/download-artifact@v4
+      - name: download daemon tarballs
+        uses: actions/download-artifact@v4
         with:
           path: dist
           pattern: tarball-*
+          merge-multiple: true
+      - name: download offline bundles
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: offline-bundle-*
           merge-multiple: true
       - name: create release
         env:
@@ -382,6 +434,17 @@ jobs:
             echo "\`\`\`bash"
             echo "docker pull ghcr.io/${GITHUB_REPOSITORY}:${NEXT_TAG}"
             echo "\`\`\`"
+            echo
+            echo "### Offline / air-gapped install (Iran)"
+            echo
+            echo "Download \`zeroone-offline-${NEXT_TAG}-<arch>.tar.gz\` below, SFTP it to your destination server, and run:"
+            echo
+            echo "\`\`\`bash"
+            echo "tar -xzf zeroone-offline-${NEXT_TAG}-amd64.tar.gz"
+            echo "sudo bash install-offline.sh"
+            echo "\`\`\`"
+            echo
+            echo "See [\`docs/OFFLINE-INSTALL.md\`](https://github.com/${GITHUB_REPOSITORY}/blob/${NEXT_TAG}/docs/OFFLINE-INSTALL.md) for the full guide."
           } > "${NOTES_FILE}"
           gh release create "${NEXT_TAG}" \
             --title "${NEXT_TAG}" \
