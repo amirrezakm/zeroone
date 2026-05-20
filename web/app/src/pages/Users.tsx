@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Activity,
   Ban,
   Copy,
   ExternalLink,
@@ -59,7 +58,6 @@ export default function Users() {
   const usage = useUsage();
   const online = useOnline(300);
   const qc = useQueryClient();
-  const toast = useToast();
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
   const [filter, setFilter] = useState<FilterKind>("all");
@@ -205,7 +203,6 @@ export default function Users() {
                   usageBytes={usageMap.get(u.email) ?? 0}
                   onlineEntry={onlineMap.get(u.email)}
                   onOpen={() => setDrawer(u)}
-                  onChanged={() => qc.invalidateQueries()}
                 />
               ))}
             </div>
@@ -390,13 +387,11 @@ function UserRow({
   usageBytes,
   onlineEntry,
   onOpen,
-  onChanged,
 }: {
   u: UserItem;
   usageBytes: number;
   onlineEntry?: OnlineUser;
   onOpen: () => void;
-  onChanged: () => void;
 }) {
   const overQuota = u.quota_bytes > 0 && usageBytes > u.quota_bytes;
   const banned = u.banned_until && u.banned_until > Date.now() / 1000;
