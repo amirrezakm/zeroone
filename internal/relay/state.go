@@ -16,26 +16,26 @@ import (
 
 // Status is the latest observed runtime state of the relay plugin.
 type Status struct {
-	Enabled       bool      `json:"enabled"`
-	Managed       bool      `json:"managed"`
-	Listen        string    `json:"listen"`
-	OutboundTag   string    `json:"outbound_tag"`
-	BinaryPath    string    `json:"binary_path"`
-	ConfigPath    string    `json:"config_path"`
-	SystemdUnit   string    `json:"systemd_unit,omitempty"`
-	PID           int       `json:"pid,omitempty"`
-	Running       bool      `json:"running"`
-	ListenOK      bool      `json:"listen_ok"`
-	HealthOK      bool      `json:"health_ok"`
-	LastProbe     time.Time `json:"last_probe,omitempty"`
-	LastError     string    `json:"last_error,omitempty"`
-	LatencyMS     int64     `json:"latency_ms,omitempty"`
-	BinaryFound   bool      `json:"binary_found"`
-	EnabledSites  int       `json:"enabled_sites"`
-	TotalSites    int       `json:"total_sites"`
-	RestartCount  int       `json:"restart_count"`
-	StartedAt     time.Time `json:"started_at,omitempty"`
-	GeneratedAt   time.Time `json:"generated_at"`
+	Enabled      bool      `json:"enabled"`
+	Managed      bool      `json:"managed"`
+	Listen       string    `json:"listen"`
+	OutboundTag  string    `json:"outbound_tag"`
+	BinaryPath   string    `json:"binary_path"`
+	ConfigPath   string    `json:"config_path"`
+	SystemdUnit  string    `json:"systemd_unit,omitempty"`
+	PID          int       `json:"pid,omitempty"`
+	Running      bool      `json:"running"`
+	ListenOK     bool      `json:"listen_ok"`
+	HealthOK     bool      `json:"health_ok"`
+	LastProbe    time.Time `json:"last_probe,omitempty"`
+	LastError    string    `json:"last_error,omitempty"`
+	LatencyMS    int64     `json:"latency_ms,omitempty"`
+	BinaryFound  bool      `json:"binary_found"`
+	EnabledSites int       `json:"enabled_sites"`
+	TotalSites   int       `json:"total_sites"`
+	RestartCount int       `json:"restart_count"`
+	StartedAt    time.Time `json:"started_at,omitempty"`
+	GeneratedAt  time.Time `json:"generated_at"`
 }
 
 // LogEntry is one structured event from the supervisor (process start,

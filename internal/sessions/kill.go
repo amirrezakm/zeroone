@@ -10,10 +10,10 @@ import (
 )
 
 type KillResult struct {
-	Email   string `json:"email"`
-	Killed  int    `json:"killed"`
-	Ports   []int  `json:"ports"`
-	IPs     []string `json:"ips"`
+	Email  string   `json:"email"`
+	Killed int      `json:"killed"`
+	Ports  []int    `json:"ports"`
+	IPs    []string `json:"ips"`
 }
 
 func KillByPeerIPs(ctx context.Context, runner system.Runner, ports []int, ips []string) (KillResult, error) {

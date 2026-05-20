@@ -31,9 +31,9 @@ type Store struct {
 
 	// Per-user bandwidth: deltas observed via the auto-sync ticker.
 	// emailBps[email] = [uplink_bps, downlink_bps] from the last sync interval.
-	lastUser    map[string]usage.Pair
-	lastUserTS  int64
-	emailBps    map[string][2]float64
+	lastUser   map[string]usage.Pair
+	lastUserTS int64
+	emailBps   map[string][2]float64
 }
 
 func NewStore(configRead func() stack.Config, failoverTag func() string) *Store {

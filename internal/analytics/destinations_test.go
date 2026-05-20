@@ -47,12 +47,12 @@ func TestPruneDropsOldBuckets(t *testing.T) {
 
 func TestStripPort(t *testing.T) {
 	for in, want := range map[string]string{
-		"google.com:443":     "google.com",
-		"1.2.3.4:443":        "1.2.3.4",
-		"[::1]:443":          "::1",
-		"[2606:4700::]:80":   "2606:4700::",
-		"":                   "",
-		"hostonly":           "hostonly",
+		"google.com:443":   "google.com",
+		"1.2.3.4:443":      "1.2.3.4",
+		"[::1]:443":        "::1",
+		"[2606:4700::]:80": "2606:4700::",
+		"":                 "",
+		"hostonly":         "hostonly",
 	} {
 		if got := stripPort(in); got != want {
 			t.Errorf("stripPort(%q) = %q want %q", in, got, want)

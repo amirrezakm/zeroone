@@ -156,12 +156,12 @@ func EncodeSingBox(all []links.Link) []byte {
 		}
 		tags = append(tags, l.Name)
 		ob := map[string]any{
-			"type":        "vless",
-			"tag":         l.Name,
-			"server":      p.host,
-			"server_port": p.port,
-			"uuid":        p.uuid,
-			"flow":        "",
+			"type":            "vless",
+			"tag":             l.Name,
+			"server":          p.host,
+			"server_port":     p.port,
+			"uuid":            p.uuid,
+			"flow":            "",
 			"packet_encoding": "xudp",
 		}
 		switch p.transport {
@@ -205,8 +205,8 @@ func EncodeSingBox(all []links.Link) []byte {
 	cfg := map[string]any{
 		"outbounds": outbounds,
 		"route": map[string]any{
-			"rules":  []map[string]any{{"protocol": "dns", "outbound": "direct"}},
-			"final":  "ZeroOne",
+			"rules":                 []map[string]any{{"protocol": "dns", "outbound": "direct"}},
+			"final":                 "ZeroOne",
 			"auto_detect_interface": true,
 		},
 	}

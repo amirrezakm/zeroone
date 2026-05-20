@@ -63,7 +63,6 @@ func (s *Supervisor) Run(ctx context.Context) {
 	backoff := time.Second
 	for {
 		if err := ctx.Err(); err != nil {
-			s.terminate(5 * time.Second)
 			return
 		}
 		if err := s.start(); err != nil {
@@ -82,12 +81,7 @@ func (s *Supervisor) Run(ctx context.Context) {
 		var err error
 		select {
 		case <-ctx.Done():
-			s.terminate(5 * time.Second)
-			// drain
-			select {
-			case <-exit:
-			case <-time.After(5 * time.Second):
-			}
+			s.terminate(5*time.Second, exit)
 			return
 		case err = <-exit:
 		}
@@ -148,21 +142,26 @@ func (s *Supervisor) Restart(ctx context.Context, _ system.Runner) error {
 	}
 }
 
-// terminate sends SIGTERM, waits up to grace, then SIGKILLs.
-func (s *Supervisor) terminate(grace time.Duration) {
+// terminate sends SIGTERM and waits for the Run loop's Wait goroutine
+// to signal exit. If exit doesn't arrive within grace, SIGKILL is sent
+// and we wait again (bounded) so the caller never returns with an
+// unreaped child whose cmd.ProcessState is still being written.
+func (s *Supervisor) terminate(grace time.Duration, exit <-chan error) {
 	cmd := s.currentCmd()
 	if cmd == nil || cmd.Process == nil {
 		return
 	}
 	_ = cmd.Process.Signal(syscall.SIGTERM)
-	deadline := time.Now().Add(grace)
-	for time.Now().Before(deadline) {
-		if cmd.ProcessState != nil {
-			return
-		}
-		time.Sleep(20 * time.Millisecond)
+	select {
+	case <-exit:
+		return
+	case <-time.After(grace):
 	}
 	_ = cmd.Process.Kill()
+	select {
+	case <-exit:
+	case <-time.After(grace):
+	}
 }
 
 // Status returns a snapshot of current process state.

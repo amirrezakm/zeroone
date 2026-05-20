@@ -350,9 +350,9 @@ type TunnelConfig struct {
 // FailoverMode controls how the failover loop picks an active tunnel.
 //   - "" / "auto"     — health-based, walks Tunnels in order
 //   - "manual"        — pin to PreferredTunnel; drift only if it goes unhealthy
-//                       (does not auto-return when it recovers; user re-picks)
+//     (does not auto-return when it recovers; user re-picks)
 //   - "preferred"     — same as manual but auto-returns to PreferredTunnel
-//                       once it becomes healthy again
+//     once it becomes healthy again
 const (
 	FailoverModeAuto      = "auto"
 	FailoverModeManual    = "manual"

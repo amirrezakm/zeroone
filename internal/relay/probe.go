@@ -15,13 +15,13 @@ import (
 
 // ProbeResult captures one health probe.
 type ProbeResult struct {
-	OK         bool   `json:"ok"`
-	ListenOK   bool   `json:"listen_ok"`
-	HealthOK   bool   `json:"health_ok"`
-	LatencyMS  int64  `json:"latency_ms,omitempty"`
-	Status     string `json:"status,omitempty"`
-	Error      string `json:"error,omitempty"`
-	Target     string `json:"target,omitempty"`
+	OK        bool   `json:"ok"`
+	ListenOK  bool   `json:"listen_ok"`
+	HealthOK  bool   `json:"health_ok"`
+	LatencyMS int64  `json:"latency_ms,omitempty"`
+	Status    string `json:"status,omitempty"`
+	Error     string `json:"error,omitempty"`
+	Target    string `json:"target,omitempty"`
 }
 
 // Probe runs a TCP check on the listen port plus an HTTP CONNECT through
