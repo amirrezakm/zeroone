@@ -43,7 +43,7 @@ export default function Topbar({ publicIP }: { publicIP?: string }) {
     setDark(next);
     document.documentElement.classList.toggle("dark", next);
     try {
-      localStorage.setItem("xs-theme", next ? "dark" : "light");
+      localStorage.setItem("zo-theme", next ? "dark" : "light");
     } catch {
       // ignore: localStorage may be unavailable (private mode, quota)
     }

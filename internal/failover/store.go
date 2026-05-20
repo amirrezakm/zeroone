@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-const DefaultStatePath = "/var/lib/xray-stack/failover-state.json"
+const DefaultStatePath = "/var/lib/zeroone/failover-state.json"
 
 func LoadState(path string) (State, error) {
 	if path == "" {

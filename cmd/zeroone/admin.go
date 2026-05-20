@@ -12,7 +12,7 @@ import (
 	"github.com/amirrezakm/zeroone/internal/stack"
 )
 
-// runAdminSubcommand handles `xray-stackd admin <verb>` invocations and
+// runAdminSubcommand handles `zeroone admin <verb>` invocations and
 // returns true if it consumed the args. The verbs are kept narrow on
 // purpose: they exist so the installer (and operators) can manage panel
 // admins without poking at JSON or hitting the bootstrap-mode API.
@@ -43,7 +43,7 @@ func runAdminSubcommand(args []string) (handled bool, exitCode int) {
 }
 
 func adminUsage() {
-	fmt.Fprint(os.Stderr, `usage: xray-stackd admin <verb> [flags]
+	fmt.Fprint(os.Stderr, `usage: zeroone admin <verb> [flags]
 
 verbs:
   add             -config PATH -username U -password P

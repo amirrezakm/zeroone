@@ -43,7 +43,7 @@ ENV CGO_ENABLED=0 GOOS=linux
 RUN GOARCH=${TARGETARCH} go build \
         -mod=vendor -trimpath \
         -ldflags="-s -w -X main.version=${VERSION}" \
-        -o /out/xray-stackd ./cmd/xray-stackd
+        -o /out/zeroone ./cmd/zeroone
 
 # ---------- 3. Xray binary ----------
 # Just curls a prebuilt binary keyed off TARGETARCH — no need to emulate
@@ -82,7 +82,7 @@ RUN apk add --no-cache \
         curl \
         tini
 
-COPY --from=daemon /out/xray-stackd      /usr/local/bin/xray-stackd
+COPY --from=daemon /out/zeroone          /usr/local/bin/zeroone
 COPY --from=xray   /opt/xray/xray        /usr/local/bin/xray
 COPY --from=xray   /opt/xray/geoip.dat   /usr/local/share/xray/geoip.dat
 COPY --from=xray   /opt/xray/geosite.dat /usr/local/share/xray/geosite.dat
@@ -108,5 +108,5 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=15s \
     CMD curl -fsS "http://127.0.0.1:${ZEROONE_ADMIN_LISTEN_PORT:-8000}/api/health" || exit 1
 
 EXPOSE 8000
-ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/xray-stackd"]
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/zeroone"]
 CMD ["-config", "/var/lib/zeroone/stack.json", "-allow-apply", "-manage-xray"]

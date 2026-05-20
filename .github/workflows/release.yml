@@ -320,7 +320,7 @@ jobs:
           mkdir -p dist
           go build -mod=vendor -trimpath \
             -ldflags="-s -w -X main.version=${VERSION}" \
-            -o dist/xray-stackd ./cmd/xray-stackd
+            -o dist/zeroone ./cmd/zeroone
       - name: package
         env:
           VERSION: ${{ needs.plan.outputs.next_tag }}
@@ -329,10 +329,10 @@ jobs:
           set -euo pipefail
           PKG="zeroone-${VERSION}-linux-${ARCH}"
           mkdir -p "dist/${PKG}"/{bin,ui,config,systemd,docs,scripts}
-          install -m 0755 dist/xray-stackd                       "dist/${PKG}/bin/xray-stackd"
+          install -m 0755 dist/zeroone                           "dist/${PKG}/bin/zeroone"
           cp -r web/app/dist/.                                   "dist/${PKG}/ui/"
           install -m 0644 config/stack.example.json              "dist/${PKG}/config/stack.example.json"
-          install -m 0644 deploy/systemd/xray-stackd.service     "dist/${PKG}/systemd/xray-stackd.service"
+          install -m 0644 deploy/systemd/zeroone.service         "dist/${PKG}/systemd/zeroone.service"
           install -m 0644 deploy/skeleton/xray.service           "dist/${PKG}/systemd/xray.service"
           install -m 0644 deploy/DEPLOY.md                       "dist/${PKG}/docs/DEPLOY.md"
           install -m 0644 README.md LICENSE CHANGELOG.md         "dist/${PKG}/"

@@ -1,13 +1,13 @@
 [Unit]
-Description=Xray Stack Go Control Plane
+Description=Zeroone Control Plane
 After=network-online.target xray.service openvpn@company.service openvpn@client-tun1.service
 Wants=network-online.target
 
 [Service]
 Type=notify
 NotifyAccess=main
-EnvironmentFile=-/etc/default/xray-stackd
-ExecStart=/usr/local/bin/xray-stackd -config /usr/local/etc/xray-stack/stack.json $XRAY_STACKD_FLAGS
+EnvironmentFile=-/etc/default/zeroone
+ExecStart=/usr/local/bin/zeroone -config /usr/local/etc/zeroone/stack.json $ZEROONE_FLAGS
 Restart=always
 RestartSec=5
 WatchdogSec=30s

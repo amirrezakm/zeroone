@@ -4,7 +4,7 @@ Guidance for Claude (or any AI assistant) working in this repo.
 
 ## What this repo is
 
-`zeroone` — a Go control plane (`cmd/xray-stackd`) + edge relay
+`zeroone` — a Go control plane (`cmd/zeroone`) + edge relay
 (`cmd/edge-relay`) + a React/Vite panel (`web/app`) for a single Xray
 host. Distributed as a public open-source project under AGPL-3.0.
 
@@ -18,9 +18,9 @@ Module path: `github.com/amirrezakm/zeroone`. Public image:
 - `scripts/check.sh` — runs `go test ./...`, renders an Xray config, and
   builds the panel if `web/app/node_modules` exists.
 - `scripts/build.sh` — `GOOS=linux GOARCH=amd64` production binary into
-  `dist/xray-stackd` + Vite build into `web/app/dist`.
+  `dist/zeroone` + Vite build into `web/app/dist`.
 - `scripts/package.sh` — builds and emits `dist/zeroone-<sha>.tar.gz`.
-- `go run ./cmd/xray-stackd -config config/stack.example.json -print-xray`
+- `go run ./cmd/zeroone -config config/stack.example.json -print-xray`
   — render the generated Xray config and exit. Safe to run anywhere.
 
 Two deployment models:
@@ -30,7 +30,7 @@ Two deployment models:
    one-line installer at `scripts/install.sh`. Xray runs as a child
    process under `-manage-xray`.
 2. **Host install (advanced)** — systemd unit
-   (`deploy/systemd/xray-stackd.service`, `Type=notify`, watchdog 30s).
+   (`deploy/systemd/zeroone.service`, `Type=notify`, watchdog 30s).
    The daemon notifies via `internal/system/sdnotify`. Required for
    OpenVPN failover, bandwidth shaping (`nft`/`tc`), and any host-level
    integration. See `docs/HOST-INSTALL.md`.
@@ -49,16 +49,16 @@ Two deployment models:
 - Host-side features (`-manage-failover`, `-manage-vpn`, bandwidth
   shaping) must be opt-in behind flags so the container build can leave
   them disabled.
-- State files: container builds use `/var/lib/zeroone`; host installs
-  use `/var/lib/xray-stack` for compatibility with existing deployments
-  (`audit.log`, `snapshots/`, `presence.json`, failover state). The
-  daemon creates them as needed.
+- State files live at `/var/lib/zeroone` for both container and host
+  installs (`audit.log`, `snapshots/`, `presence.json`, failover state).
+  The daemon creates them as needed and auto-migrates any pre-rebrand
+  `/var/lib/xray-stack` directory on first run.
 - Never commit anything under `config/stack.local.json`,
   `server-snapshots/`, or local secrets. The `.gitignore` guards these.
 
 ## What lives where
 
-- `cmd/xray-stackd/` — daemon entrypoint.
+- `cmd/zeroone/` — daemon entrypoint.
 - `cmd/edge-relay/` — small reverse proxy for PaaS edges (Runflare etc.).
   Provider-agnostic Dockerfile + a Runflare-specific
   `Dockerfile.runflare`.

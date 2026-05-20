@@ -53,7 +53,7 @@ func (m Manager) Render(cfg stack.Config) ([]byte, error) {
 }
 
 func (m Manager) Validate(ctx context.Context, cfg stack.Config, rendered []byte) error {
-	tmp, err := os.CreateTemp("", "xray-stackd-*.json")
+	tmp, err := os.CreateTemp("", "zeroone-*.json")
 	if err != nil {
 		return err
 	}

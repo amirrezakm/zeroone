@@ -92,7 +92,7 @@ sudo docker compose pull
 sudo docker compose up -d
 
 # Create the first admin once the container is up:
-sudo docker exec zeroone xray-stackd admin add \
+sudo docker exec zeroone zeroone admin add \
     -config /var/lib/zeroone/stack.json \
     -username admin -password 'pick-something-strong'
 

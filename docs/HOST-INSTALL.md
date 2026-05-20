@@ -1,6 +1,6 @@
 # Host install (no Docker)
 
-This is the advanced install path: `xray-stackd` runs as a systemd
+This is the advanced install path: `zeroone` runs as a systemd
 service alongside `xray.service` and (optionally) OpenVPN tunnel units.
 Use this when you need:
 
@@ -15,15 +15,19 @@ and the recommended path.
 
 | Path | Purpose |
 |---|---|
-| `/usr/local/bin/xray-stackd` | The daemon binary. |
+| `/usr/local/bin/zeroone` | The daemon binary. |
 | `/usr/local/bin/xray` | Xray-core binary (download from [XTLS/Xray-core](https://github.com/XTLS/Xray-core/releases)). |
-| `/usr/local/etc/xray-stack/stack.json` | Daemon config. |
+| `/usr/local/etc/zeroone/stack.json` | Daemon config. |
 | `/usr/local/etc/xray/config.json` | Live Xray config (rendered by the daemon). |
-| `/usr/local/share/xray-stack-ui/` | React panel build. |
-| `/var/lib/xray-stack/` | State: audit.log, snapshots, presence, failover state. |
-| `/etc/systemd/system/xray-stackd.service` | Systemd unit. |
+| `/usr/local/share/zeroone-ui/` | React panel build. |
+| `/var/lib/zeroone/` | State: audit.log, snapshots, presence, failover state. |
+| `/etc/systemd/system/zeroone.service` | Systemd unit. |
 | `/etc/systemd/system/xray.service` | Xray service (sample in `deploy/skeleton/`). |
-| `/etc/default/xray-stackd` | Env file consumed by the unit. |
+| `/etc/default/zeroone` | Env file consumed by the unit. |
+
+If you are upgrading from a pre-rebrand install, the daemon
+auto-migrates `/var/lib/xray-stack` → `/var/lib/zeroone` on first start
+when the new directory does not yet exist.
 
 ## Build & install
 
@@ -36,23 +40,23 @@ scripts/build.sh
 scripts/package.sh   # produces dist/zeroone-<sha>.tar.gz
 
 # Install (run on the target host):
-sudo install -m 0755 dist/xray-stackd /usr/local/bin/xray-stackd
-sudo mkdir -p /usr/local/share/xray-stack-ui
-sudo rsync -a --delete web/app/dist/ /usr/local/share/xray-stack-ui/
-sudo mkdir -p /usr/local/etc/xray-stack /var/lib/xray-stack
-sudo install -m 0600 config/stack.example.json /usr/local/etc/xray-stack/stack.json
-sudo install -m 0644 deploy/systemd/xray-stackd.service /etc/systemd/system/
-sudo install -m 0644 deploy/skeleton/xray.service       /etc/systemd/system/
+sudo install -m 0755 dist/zeroone /usr/local/bin/zeroone
+sudo mkdir -p /usr/local/share/zeroone-ui
+sudo rsync -a --delete web/app/dist/ /usr/local/share/zeroone-ui/
+sudo mkdir -p /usr/local/etc/zeroone /var/lib/zeroone
+sudo install -m 0600 config/stack.example.json /usr/local/etc/zeroone/stack.json
+sudo install -m 0644 deploy/systemd/zeroone.service /etc/systemd/system/
+sudo install -m 0644 deploy/skeleton/xray.service   /etc/systemd/system/
 
 # Install Xray-core separately from XTLS/Xray-core releases.
 ```
 
 ## Enable host-only features
 
-Edit `/etc/default/xray-stackd`:
+Edit `/etc/default/zeroone`:
 
 ```ini
-XRAY_STACKD_FLAGS=-allow-apply -manage-failover -manage-vpn -manage-relay
+ZEROONE_FLAGS=-allow-apply -manage-failover -manage-vpn -manage-relay
 ```
 
 The available flags:
@@ -96,7 +100,7 @@ Tunnel units are defined in `stack.json` under the `tunnels` array:
 ]
 ```
 
-`xray-stackd -manage-vpn` watches the named systemd units and restarts
+`zeroone -manage-vpn` watches the named systemd units and restarts
 them if the interface goes down. `-manage-failover` flips the active
 outbound based on `failover.probes`.
 
@@ -104,9 +108,9 @@ outbound based on `failover.probes`.
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now xray-stackd.service
-sudo journalctl -u xray-stackd -f
-sudo systemctl restart xray-stackd.service
+sudo systemctl enable --now zeroone.service
+sudo journalctl -u zeroone -f
+sudo systemctl restart zeroone.service
 ```
 
 The unit is `Type=notify` with a 30s watchdog. The daemon notifies
@@ -119,10 +123,10 @@ and UI files, and `systemctl restart`. The audit log and config are
 preserved across upgrades.
 
 ```bash
-sudo systemctl stop xray-stackd.service
-sudo install -m 0755 dist/xray-stackd /usr/local/bin/xray-stackd
-sudo rsync -a --delete web/app/dist/ /usr/local/share/xray-stack-ui/
-sudo systemctl start xray-stackd.service
+sudo systemctl stop zeroone.service
+sudo install -m 0755 dist/zeroone /usr/local/bin/zeroone
+sudo rsync -a --delete web/app/dist/ /usr/local/share/zeroone-ui/
+sudo systemctl start zeroone.service
 ```
 
 ## When to switch to the Docker install

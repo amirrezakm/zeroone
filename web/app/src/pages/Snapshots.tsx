@@ -62,13 +62,13 @@ export default function Snapshots() {
                   onClick={() => {
                     if (
                       !confirm(
-                        `Rollback to snapshot ${s.id}? This overwrites stack.json + xray config and requires xray-stackd restart.`,
+                        `Rollback to snapshot ${s.id}? This overwrites stack.json + xray config and requires zeroone restart.`,
                       )
                     )
                       return;
                     rollback.mutate(s.id, {
                       onSuccess: () =>
-                        toast.show("Rollback complete — restart xray-stackd to reload", "warn"),
+                        toast.show("Rollback complete — restart zeroone to reload", "warn"),
                       onError: (e: any) => toast.show(`Rollback failed: ${e?.message}`, "bad"),
                     });
                   }}

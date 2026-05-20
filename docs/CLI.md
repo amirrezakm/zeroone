@@ -65,7 +65,7 @@ With `--purge`: deletes everything (`/opt/zeroone`, `/var/lib/zeroone`,
 
 ### `zeroone cli ARGS...`
 
-Runs `xray-stackd` inside the container. Most common uses:
+Runs `zeroone` inside the container. Most common uses:
 
 ```bash
 zeroone cli admin add -config /var/lib/zeroone/stack.json \

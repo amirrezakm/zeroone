@@ -200,7 +200,7 @@ func (s *Server) snapshotsRollback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Reload stack config and re-apply Xray so the live state matches.
-	// (Caller is expected to restart xray-stackd if structural changes happened.)
+	// (Caller is expected to restart zeroone if structural changes happened.)
 	s.recordAudit(s.actor(r), "snapshot.rollback", id, nil)
-	s.write(w, map[string]any{"ok": true, "id": id, "note": "stack.json + xray config restored; restart xray-stackd to reload state"})
+	s.write(w, map[string]any{"ok": true, "id": id, "note": "stack.json + xray config restored; restart zeroone to reload state"})
 }

@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-// Defaults tuned for a typical xray-stack deployment.
+// Defaults tuned for a typical zeroone deployment.
 const (
 	DefaultRetention = 48 * time.Hour
 	DefaultTickEvery = 60 * time.Second

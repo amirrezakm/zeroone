@@ -10,7 +10,7 @@ import (
 	"github.com/amirrezakm/zeroone/internal/system"
 )
 
-const ruleComment = "xray-stack bandwidth-limited"
+const ruleComment = "zeroone bandwidth-limited"
 
 type UFW struct {
 	Runner system.Runner

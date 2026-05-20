@@ -126,7 +126,7 @@ function RelayStatusCard({
 
   function doRestart() {
     if (!managed) {
-      toast.show("Supervisor not running — start xray-stackd with -manage-relay", "warn");
+      toast.show("Supervisor not running — start zeroone with -manage-relay", "warn");
       return;
     }
     restart.mutate(undefined, {

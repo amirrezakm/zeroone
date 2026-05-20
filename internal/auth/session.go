@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	SessionCookieName = "xray_stack_session"
+	SessionCookieName = "zeroone_session"
 	SessionTTL        = 12 * time.Hour
 )
 

@@ -13,8 +13,8 @@ CONFIG="$ROOT/config/stack.local.json"
 
 go vet ./...
 go test ./...
-go run ./cmd/xray-stackd -config "$CONFIG" -print-xray >/tmp/xray-stackd-generated.json
-python3 -m json.tool /tmp/xray-stackd-generated.json >/dev/null
+go run ./cmd/zeroone -config "$CONFIG" -print-xray >/tmp/zeroone-generated.json
+python3 -m json.tool /tmp/zeroone-generated.json >/dev/null
 
 if [ -d "$ROOT/web/app/node_modules" ]; then
   npm --prefix "$ROOT/web/app" run build >/dev/null

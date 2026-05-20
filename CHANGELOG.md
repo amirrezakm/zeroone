@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+### Breaking Changes
+
+- rebrand: rename daemon binary `xray-stackd` → `zeroone`, npm package
+  `xray-stack-ui` → `zeroone-ui`, systemd unit
+  `xray-stackd.service` → `zeroone.service`, host paths
+  `/usr/local/etc/xray-stack` → `/usr/local/etc/zeroone`,
+  `/usr/local/share/xray-stack-ui` → `/usr/local/share/zeroone-ui`,
+  `/var/lib/xray-stack` → `/var/lib/zeroone`,
+  `/etc/default/xray-stackd` → `/etc/default/zeroone`, env var
+  `XRAY_STACKD_FLAGS` → `ZEROONE_FLAGS`, session cookie
+  `xray_stack_session` → `zeroone_session`, and HTML/UI strings
+  to `Zeroone`. The daemon auto-migrates `/var/lib/xray-stack` →
+  `/var/lib/zeroone` on first start when the new directory does not
+  yet exist; existing admins must log in again after the cookie name
+  change.
+
 ## v0.2.1 — 2026-05-20
 
 ### Bug Fixes

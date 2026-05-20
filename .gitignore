@@ -34,9 +34,9 @@ dist/
 
 # Local-built binaries
 /edge-relay
-/xray-stackd
+/zeroone
 /cmd/edge-relay/edge-relay
-/cmd/xray-stackd/xray-stackd
+/cmd/zeroone/zeroone
 
 # Test/coverage
 coverage.out

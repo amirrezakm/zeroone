@@ -40,7 +40,7 @@ commit subject. Use one of these prefixes in your **PR title**:
 | `feat:`        | minor bump (e.g. 0.1 → 0.2)    | `feat: add OpenVPN failover`             |
 | `fix:`         | patch bump (e.g. 0.1.0 → 0.1.1)| `fix(api): reject empty admin password`  |
 | `perf:`        | patch bump                     | `perf(stats): batch presence flushes`    |
-| `<type>!:`     | major bump (breaking change)   | `feat!: drop legacy /var/lib/xray-stack` |
+| `<type>!:`     | major bump (breaking change)   | `feat!: rename state dir to /var/lib/zeroone` |
 | `docs:` / `chore:` / `ci:` / `refactor:` / `test:` / `build:` / `style:` | no release | `docs: clarify install flow` |
 
 A `BREAKING CHANGE:` footer in the commit body also forces a major bump.

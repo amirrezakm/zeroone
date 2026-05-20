@@ -256,11 +256,11 @@ cmd_install() {
     wait_for_health 90 || true
 
     log "creating admin account"
-    if ! docker exec zeroone xray-stackd admin add \
+    if ! docker exec zeroone zeroone admin add \
             -config /var/lib/zeroone/stack.json \
             -username "${ADMIN_USER}" \
             -password "${ADMIN_PASS}" >/dev/null; then
-        warn "failed to add admin via 'xray-stackd admin add' — try manually:"
+        warn "failed to add admin via 'zeroone admin add' — try manually:"
         warn "  zeroone cli admin add -config /var/lib/zeroone/stack.json -username ${ADMIN_USER} -password ..."
     else
         ok "admin '${ADMIN_USER}' created"
@@ -343,13 +343,13 @@ cmd_uninstall() {
 
 cmd_cli() {
     if [ $# -eq 0 ]; then
-        docker exec -it zeroone /usr/local/bin/xray-stackd --help 2>&1 || true
+        docker exec -it zeroone /usr/local/bin/zeroone --help 2>&1 || true
         return
     fi
     if [ -t 0 ]; then
-        docker exec -it zeroone /usr/local/bin/xray-stackd "$@"
+        docker exec -it zeroone /usr/local/bin/zeroone "$@"
     else
-        docker exec -i zeroone /usr/local/bin/xray-stackd "$@"
+        docker exec -i zeroone /usr/local/bin/zeroone "$@"
     fi
 }
 
@@ -413,7 +413,7 @@ cmd_version() {
         img=$(grep -E '^ZEROONE_IMAGE=' "${ENV_FILE}" | tail -1 | cut -d= -f2 || true)
         printf 'image:               %s:%s\n' "${img:-${IMAGE_BASE}}" "${v:-latest}"
     fi
-    docker exec zeroone xray-stackd --help 2>&1 | head -1 || true
+    docker exec zeroone zeroone --help 2>&1 | head -1 || true
 }
 
 cmd_help() {
@@ -431,7 +431,7 @@ subcommands:
   logs [-f|...]                 follow daemon logs (default: -f --tail=200)
   update                        pull newest compose + image, restart
   uninstall [--purge]           stop; --purge also deletes state
-  cli ARGS...                   run xray-stackd inside the container
+  cli ARGS...                   run zeroone inside the container
                                 (e.g. zeroone cli admin add -config /var/lib/zeroone/stack.json
                                                             -username U -password P)
   edit                          $EDITOR /var/lib/zeroone/stack.json; restart

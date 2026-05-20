@@ -59,9 +59,9 @@ const (
 	DefaultRelaySOCKSPort   = 8086
 	DefaultRelayOutboundTag = "relay-mhrv"
 	DefaultRelayBinary      = "/usr/local/bin/mhrv-rs"
-	DefaultRelayConfigPath  = "/var/lib/xray-stack/relay/config.json"
-	DefaultRelayStatePath   = "/var/lib/xray-stack/relay/state.json"
-	DefaultRelayLogPath     = "/var/lib/xray-stack/relay/relay.log"
+	DefaultRelayConfigPath  = "/var/lib/zeroone/relay/config.json"
+	DefaultRelayStatePath   = "/var/lib/zeroone/relay/state.json"
+	DefaultRelayLogPath     = "/var/lib/zeroone/relay/relay.log"
 	DefaultRelayHealthProbe = "www.google.com:443"
 	DefaultRelayGoogleIP    = "216.239.38.120"
 	DefaultRelayFrontDomain = "www.google.com"

@@ -73,7 +73,7 @@ shaping (`nft` / `tc`), or systemd-managed tunnels, see
 
 ## Repository layout
 
-- `cmd/xray-stackd/` — control plane daemon.
+- `cmd/zeroone/` — control plane daemon.
 - `cmd/edge-relay/` — small reverse proxy for PaaS edges. See
   [`docs/runflare-edge-deploy.md`](docs/runflare-edge-deploy.md).
 - `internal/` — 24 Go packages: `stack` (config), `xray` (config
@@ -96,7 +96,7 @@ scripts/check.sh
 scripts/build.sh
 
 # Run the daemon locally
-go run ./cmd/xray-stackd -config config/stack.example.json
+go run ./cmd/zeroone -config config/stack.example.json
 ```
 
 Flags: `-print-xray` (render generated Xray config and exit),

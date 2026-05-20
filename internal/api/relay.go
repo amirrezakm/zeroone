@@ -306,7 +306,7 @@ func (s *Server) relayTest(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) relayRestart(w http.ResponseWriter, r *http.Request) {
 	if s.relaySupervisor == nil {
-		s.fail(w, http.StatusServiceUnavailable, fmt.Errorf("relay supervisor is not running (start xray-stackd with -manage-relay)"))
+		s.fail(w, http.StatusServiceUnavailable, fmt.Errorf("relay supervisor is not running (start zeroone with -manage-relay)"))
 		return
 	}
 	s.relaySupervisor.Restart()

@@ -1,5 +1,5 @@
 // Package presence persists "last seen" timestamps per panel user across
-// xray-stackd restarts. A background ticker queries the journal every
+// zeroone restarts. A background ticker queries the journal every
 // minute and updates the tracker so the panel can show "last seen 3h ago"
 // even for users who are not currently online.
 package presence

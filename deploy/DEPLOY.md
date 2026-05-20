@@ -1,16 +1,16 @@
-# Xray Stack Deployment
+# Zeroone Deployment
 
 This package now represents the production Go control plane. Start locked for first installs, then enable write actions when the Go daemon should manage Xray.
 
 ## Install Files
 
 ```bash
-install -m 0755 bin/xray-stackd /usr/local/bin/xray-stackd
-install -d /usr/local/share/xray-stack-ui
-rsync -a --delete ui/ /usr/local/share/xray-stack-ui/
-install -d /usr/local/etc/xray-stack
-install -m 0600 config/stack.json /usr/local/etc/xray-stack/stack.json
-install -m 0644 systemd/xray-stackd.service /etc/systemd/system/xray-stackd.service
+install -m 0755 bin/zeroone /usr/local/bin/zeroone
+install -d /usr/local/share/zeroone-ui
+rsync -a --delete ui/ /usr/local/share/zeroone-ui/
+install -d /usr/local/etc/zeroone
+install -m 0600 config/stack.json /usr/local/etc/zeroone/stack.json
+install -m 0644 systemd/zeroone.service /etc/systemd/system/zeroone.service
 ```
 
 Use the imported live stack config as `config/stack.json`; do not deploy `stack.example.json` as-is.
@@ -19,18 +19,18 @@ The production daemon listens on `127.0.0.1:8091`:
 
 ```bash
 jq '.server.admin_listen="127.0.0.1:8091"' config/stack.json > /tmp/stack-go.json
-install -m 0600 /tmp/stack-go.json /usr/local/etc/xray-stack/stack.json
+install -m 0600 /tmp/stack-go.json /usr/local/etc/zeroone/stack.json
 ```
 
 ## Locked First Start
 
 ```bash
-cat >/etc/default/xray-stackd <<'EOF'
-XRAY_STACKD_FLAGS=
+cat >/etc/default/zeroone <<'EOF'
+ZEROONE_FLAGS=
 EOF
 systemctl daemon-reload
-systemctl enable --now xray-stackd.service
-systemctl status xray-stackd.service --no-pager
+systemctl enable --now zeroone.service
+systemctl status zeroone.service --no-pager
 curl -fsS http://127.0.0.1:8091/api/config/summary | jq .
 curl -fsS http://127.0.0.1:8091/api/xray/apply-plan | jq .
 ```
@@ -39,7 +39,7 @@ In locked mode, the panel can inspect config, usage, tunnels, quota plans, and b
 
 ## Side-by-Side Nginx Exposure
 
-The ZeroOne production route is:
+The Zeroone production route is:
 
 - `/monitor-go/` -> `http://127.0.0.1:8091/`
 - `/api/` -> `http://127.0.0.1:8091/api/`
@@ -53,10 +53,10 @@ All three locations must keep the same Basic Auth file as `/monitor/`. Run `ngin
 Only after the generated config validates and the UI looks correct:
 
 ```bash
-cat >/etc/default/xray-stackd <<'EOF'
-XRAY_STACKD_FLAGS=-allow-apply -manage-failover -manage-vpn
+cat >/etc/default/zeroone <<'EOF'
+ZEROONE_FLAGS=-allow-apply -manage-failover -manage-vpn
 EOF
-systemctl restart xray-stackd.service
+systemctl restart zeroone.service
 ```
 
 Expected write operations:
@@ -68,8 +68,8 @@ Expected write operations:
 ## Rollback
 
 ```bash
-systemctl stop xray-stackd.service
-systemctl disable xray-stackd.service
+systemctl stop zeroone.service
+systemctl disable zeroone.service
 systemctl restart xray.service
 nft delete table inet xray_bw 2>/dev/null || true
 tc qdisc del dev eth0 root 2>/dev/null || true
@@ -81,8 +81,8 @@ Xray config backups created by the Go daemon are stored under `/root/xray-audit-
 
 ## Preflight Checklist
 
-- `go run ./cmd/xray-stackd -config config/stack.local.json -print-xray` matches the live Xray snapshot before any speed-limit inbounds are added.
+- `go run ./cmd/zeroone -config config/stack.local.json -print-xray` matches the live Xray snapshot before any speed-limit inbounds are added.
 - `scripts/check.sh` passes locally.
-- `scripts/build.sh` produces `dist/xray-stackd` and `web/app/dist`.
+- `scripts/build.sh` produces `dist/zeroone` and `web/app/dist`.
 - Existing ports `443`, `8088`, `1080`, and SSH/VNC access remain unchanged.
-- ZeroOne production currently runs with `-allow-apply -manage-failover -manage-vpn`.
+- Zeroone production currently runs with `-allow-apply -manage-failover -manage-vpn`.

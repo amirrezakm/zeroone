@@ -92,7 +92,7 @@ func loadConfig() (config, error) {
 	}
 
 	// /sub/ and /me/ go through the panel's subscription + portal handlers
-	// at the same nginx :80 used by xhttp, then nginx proxies to xray-stackd
+	// at the same nginx :80 used by xhttp, then nginx proxies to zeroone
 	// on 127.0.0.1:8091.
 	panelTarget := os.Getenv("PANEL_TARGET")
 	if panelTarget == "" && originHost != "" {

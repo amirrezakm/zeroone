@@ -34,7 +34,7 @@ import (
 )
 
 func main() {
-	// Subcommand dispatch (xray-stackd admin add/list/reset-password).
+	// Subcommand dispatch (zeroone admin add/list/reset-password).
 	// Must run before flag.Parse so the subcommand's own flag set owns
 	// the remaining argv. The default verb is "run" (the daemon).
 	if handled, code := runAdminSubcommand(os.Args[1:]); handled {
@@ -90,8 +90,9 @@ func main() {
 
 	stateDir := filepath.Dir(cfg.Server.FailoverStatePath)
 	if stateDir == "" || stateDir == "." {
-		stateDir = "/var/lib/xray-stack"
+		stateDir = "/var/lib/zeroone"
 	}
+	migrateLegacyStateDir(stateDir)
 	auditLog := audit.New(filepath.Join(stateDir, "audit.log"))
 	snapStore := snapshots.New(filepath.Join(stateDir, "snapshots"))
 	presenceTracker := presence.New(filepath.Join(stateDir, "presence.json"))
@@ -199,7 +200,7 @@ func main() {
 		MaxHeaderBytes:    1 << 20,
 	}
 	go func() {
-		slog.Info("xray-stackd listening", "addr", cfg.Server.AdminListen)
+		slog.Info("zeroone listening", "addr", cfg.Server.AdminListen)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("http server", "err", err)
 			os.Exit(1)
