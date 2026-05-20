@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.0.0 — 2026-05-20
+
+### ⚠ Breaking Changes
+
+- rebrand xray-stack/xray-stackd to zeroone (4c97ed9)
+
+### Bug Fixes
+
+- propagate close error from copyFile writer (de31444)
+- fall back to recursive copy on cross-device legacy state (1220150)
+- merge legacy state into pre-created /var/lib/zeroone (00303c7)
+
 ## [Unreleased]
 
 ### Breaking Changes
