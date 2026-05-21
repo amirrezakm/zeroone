@@ -30,6 +30,7 @@ import (
 	"github.com/amirrezakm/zeroone/internal/tunnel"
 	"github.com/amirrezakm/zeroone/internal/usage"
 	xrayinternal "github.com/amirrezakm/zeroone/internal/xray"
+	"github.com/amirrezakm/zeroone/internal/xrayinstall"
 	"github.com/amirrezakm/zeroone/internal/xrayproc"
 )
 
@@ -180,6 +181,44 @@ func main() {
 		relaySupervisor = relay.NewSupervisor(*configPath, relayLoader, relayStore, broker)
 	}
 
+	// xrayinstall manages panel-driven xray updates. Constructed even
+	// when -manage-xray is off: the override-vs-image resolver is
+	// useful for host installs too, and the API endpoints stay
+	// callable (without a Restart callback) so admins can still stage
+	// an upload and restart xray manually.
+	installDir := cfg.Server.XrayInstallDir
+	if installDir == "" {
+		installDir = filepath.Join(stateDir, "xray")
+	}
+	imageBinary := os.Getenv("ZEROONE_XRAY_IMAGE_BINARY")
+	if imageBinary == "" {
+		imageBinary = cfg.Server.XrayBinary
+	}
+	imageAssets := os.Getenv("ZEROONE_XRAY_IMAGE_ASSETS")
+	if imageAssets == "" {
+		imageAssets = os.Getenv("XRAY_LOCATION_ASSET")
+	}
+	imageVer := os.Getenv("ZEROONE_XRAY_IMAGE_VERSION")
+	xrayInstaller := xrayinstall.New(installDir, imageBinary, imageAssets, imageVer, slog.Default())
+	xrayInstaller.LoadConfig = func() stack.Config {
+		c, err := stack.Load(*configPath)
+		if err != nil {
+			return *cfg
+		}
+		return *c
+	}
+	xrayInstaller.EnvSources = xrayinstall.Sources{
+		ReleaseBase:   xrayinstall.DefaultReleaseBase,
+		ReleaseAPI:    xrayinstall.DefaultReleaseAPI,
+		ReleaseMirror: os.Getenv("ZEROONE_XRAY_RELEASE_MIRROR"),
+		AssetsMirror:  os.Getenv("ZEROONE_XRAY_ASSETS_MIRROR"),
+	}
+	_ = xrayInstaller.EnsureDirs()
+	// xrayinternal's validate step shells out to the binary — point it
+	// at the resolver so a swapped override is picked up immediately,
+	// without mutating cfg.Server.XrayBinary in stack.json.
+	xrayinternal.SetBinaryResolver(func(_ stack.Config) string { return xrayInstaller.ActiveBinary() })
+
 	h := api.NewServerWithOptions(*cfg, *configPath, *allowApply, api.Options{
 		Metrics:         store,
 		Events:          broker,
@@ -189,6 +228,7 @@ func main() {
 		Destinations:    destAgg,
 		RelayStore:      relayStore,
 		RelaySupervisor: relaySupervisor,
+		XrayInstaller:   xrayInstaller,
 	})
 	srv := &http.Server{
 		Addr:              cfg.Server.AdminListen,
@@ -213,7 +253,17 @@ func main() {
 		// Restarter so api.Apply uses it instead of `systemctl`.
 		xrayLogPath := filepath.Join(stateDir, "logs", "xray.log")
 		sup := xrayproc.New(cfg.Server.XrayBinary, cfg.Server.XrayConfigPath, xrayLogPath, slog.Default())
+		// Provider hooks let the installer swap binary/assets atomically
+		// — supervisor re-resolves them on every (re)spawn.
+		sup.BinaryProvider = xrayInstaller.ActiveBinary
+		sup.AssetsDirProvider = xrayInstaller.ActiveAssetsDir
 		xrayinternal.SetRestarter(sup)
+		// xrayinstall asks for a restart after a successful binary
+		// swap. We funnel through the same Restarter contract used
+		// by xray.Apply so backoff/PID accounting stays consistent.
+		xrayInstaller.Restart = func(rctx context.Context) error {
+			return sup.Restart(rctx, system.ExecRunner{Timeout: 20 * time.Second})
+		}
 		slog.Info("starting xray supervisor", "binary", cfg.Server.XrayBinary, "config", cfg.Server.XrayConfigPath, "log", xrayLogPath)
 		go sup.Run(ctx)
 	}

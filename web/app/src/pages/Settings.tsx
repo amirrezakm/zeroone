@@ -14,6 +14,7 @@ import {
   UserCog,
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
+import SettingsXrayPanel from "./SettingsXrayPanel";
 import { useClientEndpointHealth, useNotifications, useSummary, useTokens } from "../api/hooks";
 import { useAdmins, useMe } from "../api/auth";
 import { post, del, put, api } from "../api/client";
@@ -35,6 +36,7 @@ export default function Settings() {
     <>
       <PageHeader title="Settings" subtitle="Apply mode, failover, tokens, notifications." />
       <div className="grid gap-5 lg:grid-cols-2">
+        <SettingsXrayPanel />
         <div className="panel panel-pad">
           <h2 className="mb-3 text-sm font-semibold tracking-tight">Apply mode</h2>
           <p className="text-muted dark:text-muted-dark mb-3 text-sm">

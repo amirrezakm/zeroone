@@ -66,4 +66,13 @@ func applyEnvOverrides(cfg *stack.Config) {
 			cfg.Server.FailoverStatePath = filepath.Join(v, "failover-state.json")
 		}
 	}
+	if v := os.Getenv("ZEROONE_XRAY_INSTALL_DIR"); v != "" && cfg.Server.XrayInstallDir == "" {
+		cfg.Server.XrayInstallDir = v
+	}
+	if v := os.Getenv("ZEROONE_XRAY_RELEASE_MIRROR"); v != "" && cfg.XrayUpdate.ReleaseMirror == "" {
+		cfg.XrayUpdate.ReleaseMirror = v
+	}
+	if v := os.Getenv("ZEROONE_XRAY_ASSETS_MIRROR"); v != "" && cfg.XrayUpdate.AssetsMirror == "" {
+		cfg.XrayUpdate.AssetsMirror = v
+	}
 }

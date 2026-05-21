@@ -1,5 +1,21 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+- panel-driven Xray binary + geo data updates (Settings → Xray runtime). The
+  image still ships xray, so first install is unchanged; the panel writes
+  newer versions to a writable override path that takes precedence over the
+  image binary. Includes online updates with sha256 verification against
+  upstream `.dgst`, offline upload of a pre-downloaded zip, rollback to a
+  prior override version, and "reset to image" to wipe overrides entirely.
+- mirror configuration for xray update downloads. Env-driven defaults
+  (`ZEROONE_XRAY_RELEASE_MIRROR`, `ZEROONE_XRAY_ASSETS_MIRROR`) plus
+  per-installation overrides in the panel persisted to
+  `stack.json:xray_update.release_mirror`. Pinned version + auto-check
+  toggles supported.
+
 ## v1.2.0 — 2026-05-21
 
 ### Features

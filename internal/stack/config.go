@@ -11,12 +11,30 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig   `json:"server"`
-	Xray     XrayConfig     `json:"xray"`
-	Tunnels  []TunnelConfig `json:"tunnels"`
-	Failover FailoverConfig `json:"failover"`
-	Panel    PanelConfig    `json:"panel,omitempty"`
-	Relay    RelayConfig    `json:"relay,omitempty"`
+	Server     ServerConfig     `json:"server"`
+	Xray       XrayConfig       `json:"xray"`
+	Tunnels    []TunnelConfig   `json:"tunnels"`
+	Failover   FailoverConfig   `json:"failover"`
+	Panel      PanelConfig      `json:"panel,omitempty"`
+	Relay      RelayConfig      `json:"relay,omitempty"`
+	XrayUpdate XrayUpdateConfig `json:"xray_update,omitempty"`
+}
+
+// XrayUpdateConfig holds the panel-driven xray update knobs. ReleaseMirror
+// and AssetsMirror override the upstream GitHub URLs (handy behind
+// Iranian PaaS CDNs); both are nullable strings — empty means "use the
+// env default, or fall back to GitHub". PinnedVersion (e.g. "v25.1.30")
+// keeps the panel from offering a newer build until the admin clears it.
+type XrayUpdateConfig struct {
+	ReleaseMirror string `json:"release_mirror,omitempty"`
+	AssetsMirror  string `json:"assets_mirror,omitempty"`
+	PinnedVersion string `json:"pinned_version,omitempty"`
+	// AutoCheck and IncludeGeo default to true when the struct is zero
+	// because the JSON tag has no `omitempty` issue here: the JSON form
+	// distinguishes "absent" from "false". Defaulting is done at read
+	// time in xrayinstall.EffectiveUpdateConfig.
+	AutoCheck  *bool `json:"auto_check,omitempty"`
+	IncludeGeo *bool `json:"include_geo,omitempty"`
 }
 
 // RelayConfig wires the MasterHttpRelayVPN (mhrv-rs) plugin into the stack.
@@ -163,6 +181,12 @@ type ServerConfig struct {
 	FailoverStatePath   string           `json:"failover_state_path,omitempty"`
 	FailoverHistoryPath string           `json:"failover_history_path,omitempty"`
 	DestinationsPath    string           `json:"destinations_path,omitempty"`
+	// XrayInstallDir is the writable override tree that holds binaries
+	// and geo files installed by the panel "Update Xray" flow. Empty
+	// means use the default /var/lib/zeroone/xray (set by the
+	// xrayinstall package). On a fresh container this tree is empty
+	// and xray runs from the image-baked /usr/local/bin/xray.
+	XrayInstallDir string `json:"xray_install_dir,omitempty"`
 }
 
 type ClientEndpoint struct {

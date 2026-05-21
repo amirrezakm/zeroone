@@ -79,6 +79,15 @@ Two deployment models:
   `internal/notify`, `internal/presence`, `internal/metrics`,
   `internal/analytics`, `internal/stats` — observability and history.
 - `internal/system` — small process/runner/sdnotify helpers.
+- `internal/xrayinstall` — panel-driven Xray binary + geo data updates.
+  Writes newer versions into a writable override tree at
+  `/var/lib/zeroone/xray/` (`bin/xray` symlink, `versions/<ver>/`,
+  `assets/{geoip,geosite}.dat`, `state.json`). When the override exists
+  it takes precedence over the image-baked `/usr/local/bin/xray`;
+  otherwise the daemon runs the image binary unchanged — no first-boot
+  download. Mirror via `ZEROONE_XRAY_RELEASE_MIRROR` /
+  `ZEROONE_XRAY_ASSETS_MIRROR` env vars or per-install in
+  `stack.json:xray_update`.
 - `docker/` — production Dockerfile, compose file, env example.
 - `deploy/skeleton/` — sanitized reference systemd units for host
   installs.

@@ -32,6 +32,7 @@ import (
 	"github.com/amirrezakm/zeroone/internal/tunnel"
 	"github.com/amirrezakm/zeroone/internal/usage"
 	"github.com/amirrezakm/zeroone/internal/xray"
+	"github.com/amirrezakm/zeroone/internal/xrayinstall"
 )
 
 type Options struct {
@@ -43,6 +44,7 @@ type Options struct {
 	Destinations    *analytics.Aggregator
 	RelayStore      *relay.Store
 	RelaySupervisor *relay.Supervisor
+	XrayInstaller   *xrayinstall.Installer
 }
 
 type Server struct {
@@ -57,6 +59,7 @@ type Server struct {
 	destinations    *analytics.Aggregator
 	relayStore      *relay.Store
 	relaySupervisor *relay.Supervisor
+	xrayInstaller   *xrayinstall.Installer
 }
 
 func NewServer(cfg stack.Config, configPath string, allowApply bool) http.Handler {
@@ -67,7 +70,8 @@ func NewServerWithOptions(cfg stack.Config, configPath string, allowApply bool, 
 	s := &Server{cfg: cfg, configPath: configPath, allowApply: allowApply,
 		metrics: opts.Metrics, events: opts.Events, audit: opts.Audit, snapshots: opts.Snapshots,
 		presence: opts.Presence, destinations: opts.Destinations,
-		relayStore: opts.RelayStore, relaySupervisor: opts.RelaySupervisor}
+		relayStore: opts.RelayStore, relaySupervisor: opts.RelaySupervisor,
+		xrayInstaller: opts.XrayInstaller}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.health)
 	mux.HandleFunc("POST /api/test/connect", s.testConnect)
@@ -83,6 +87,15 @@ func NewServerWithOptions(cfg stack.Config, configPath string, allowApply bool, 
 	mux.HandleFunc("GET /api/xray/traffic", s.xrayTraffic)
 	mux.HandleFunc("GET /api/xray/apply-plan", s.xrayApplyPlan)
 	mux.HandleFunc("POST /api/xray/apply", s.xrayApply)
+	mux.HandleFunc("GET /api/xray/version", s.xrayVersion)
+	mux.HandleFunc("GET /api/xray/version/check", s.xrayVersionCheck)
+	mux.HandleFunc("POST /api/xray/update", s.xrayUpdate)
+	mux.HandleFunc("POST /api/xray/update/upload", s.xrayUpdateUpload)
+	mux.HandleFunc("GET /api/xray/update/status", s.xrayUpdateStatus)
+	mux.HandleFunc("POST /api/xray/rollback", s.xrayRollback)
+	mux.HandleFunc("POST /api/xray/reset-to-image", s.xrayResetToImage)
+	mux.HandleFunc("GET /api/xray/update/config", s.xrayUpdateConfigGet)
+	mux.HandleFunc("PUT /api/xray/update/config", s.xrayUpdateConfigPut)
 	mux.HandleFunc("GET /api/failover/decision", s.failoverDecision)
 	mux.HandleFunc("GET /api/failover/history", s.failoverHistory)
 	mux.HandleFunc("PUT /api/failover/mode", s.failoverMode)

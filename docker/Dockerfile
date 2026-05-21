@@ -97,6 +97,10 @@ ENV XRAY_LOCATION_ASSET=/usr/local/share/xray \
     ZEROONE_STATE_DIR=/var/lib/zeroone \
     ZEROONE_XRAY_BINARY=/usr/local/bin/xray \
     ZEROONE_XRAY_CONFIG_PATH=/var/lib/zeroone/xray.json \
+    ZEROONE_XRAY_INSTALL_DIR=/var/lib/zeroone/xray \
+    ZEROONE_XRAY_IMAGE_BINARY=/usr/local/bin/xray \
+    ZEROONE_XRAY_IMAGE_ASSETS=/usr/local/share/xray \
+    ZEROONE_XRAY_IMAGE_VERSION="${XRAY_VERSION}" \
     ZEROONE_AUTO_INIT=1
 
 WORKDIR /var/lib/zeroone

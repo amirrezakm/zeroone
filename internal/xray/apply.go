@@ -38,6 +38,27 @@ func SetRestarter(r Restarter) {
 	}
 }
 
+// BinaryResolver returns the runtime xray binary path. The default
+// honours cfg.Server.XrayBinary directly; xrayinstall.Installer
+// overrides this so panel-driven updates take effect on the next
+// Validate / Restart without mutating the persisted config.
+type BinaryResolver func(cfg stack.Config) string
+
+var activeBinaryResolver BinaryResolver
+
+// SetBinaryResolver wires a custom resolver. Called once during daemon
+// startup after the installer is constructed.
+func SetBinaryResolver(r BinaryResolver) { activeBinaryResolver = r }
+
+func resolveBinary(cfg stack.Config) string {
+	if activeBinaryResolver != nil {
+		if p := activeBinaryResolver(cfg); p != "" {
+			return p
+		}
+	}
+	return cfg.Server.XrayBinary
+}
+
 type systemctlRestarter struct{}
 
 func (systemctlRestarter) Restart(ctx context.Context, runner system.Runner) error {
@@ -69,7 +90,7 @@ func (m Manager) Validate(ctx context.Context, cfg stack.Config, rendered []byte
 	if runner == nil {
 		runner = system.ExecRunner{Timeout: 15 * time.Second}
 	}
-	res, err := runner.Run(ctx, cfg.Server.XrayBinary, "run", "-test", "-config", tmp.Name())
+	res, err := runner.Run(ctx, resolveBinary(cfg), "run", "-test", "-config", tmp.Name())
 	if err != nil {
 		return fmt.Errorf("xray config test failed: %w: %s%s", err, res.Stdout, res.Stderr)
 	}

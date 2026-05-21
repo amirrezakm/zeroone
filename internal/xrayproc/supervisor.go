@@ -32,9 +32,17 @@ import (
 // Supervisor runs a single xray process and restarts it on demand.
 type Supervisor struct {
 	BinaryPath string
-	ConfigPath string
-	LogPath    string
-	Logger     *slog.Logger
+	// BinaryProvider, when set, is consulted on every (re)spawn and
+	// takes precedence over BinaryPath. Used by xrayinstall so a
+	// panel-driven binary swap is picked up on the next Restart
+	// without a daemon restart. Returning "" falls back to BinaryPath.
+	BinaryProvider func() string
+	// AssetsDirProvider, when set, is consulted on every (re)spawn to
+	// fill XRAY_LOCATION_ASSET. Same precedence story as BinaryProvider.
+	AssetsDirProvider func() string
+	ConfigPath        string
+	LogPath           string
+	Logger            *slog.Logger
 
 	mu           sync.Mutex
 	cmd          *exec.Cmd
@@ -42,6 +50,22 @@ type Supervisor struct {
 	restartCount int
 	lastExit     error
 	stopping     bool
+}
+
+func (s *Supervisor) resolveBinary() string {
+	if s.BinaryProvider != nil {
+		if p := s.BinaryProvider(); p != "" {
+			return p
+		}
+	}
+	return s.BinaryPath
+}
+
+func (s *Supervisor) resolveAssetsDir() string {
+	if s.AssetsDirProvider != nil {
+		return s.AssetsDirProvider()
+	}
+	return ""
 }
 
 // New constructs a Supervisor.
@@ -229,10 +253,14 @@ func (s *Supervisor) start() error {
 		s.logFile = f
 		logW = f
 	}
-	cmd := exec.Command(s.BinaryPath, "run", "-c", s.ConfigPath)
+	binary := s.resolveBinary()
+	cmd := exec.Command(binary, "run", "-c", s.ConfigPath)
 	cmd.Stdout = logW
 	cmd.Stderr = logW
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if assets := s.resolveAssetsDir(); assets != "" {
+		cmd.Env = append(os.Environ(), "XRAY_LOCATION_ASSET="+assets)
+	}
 	if err := cmd.Start(); err != nil {
 		return err
 	}

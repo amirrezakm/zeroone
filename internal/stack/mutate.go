@@ -10,6 +10,24 @@ import (
 	"strings"
 )
 
+// SetXrayUpdateConfig replaces the XrayUpdate block in place. Empty
+// strings clear the override (so the env default takes over again);
+// nil bool pointers leave the previous toggle untouched. Returns the
+// in-place mutated value for callers that want it.
+func (c *Config) SetXrayUpdateConfig(patch XrayUpdateConfig) {
+	c.XrayUpdate.ReleaseMirror = strings.TrimSpace(patch.ReleaseMirror)
+	c.XrayUpdate.AssetsMirror = strings.TrimSpace(patch.AssetsMirror)
+	c.XrayUpdate.PinnedVersion = strings.TrimSpace(patch.PinnedVersion)
+	if patch.AutoCheck != nil {
+		v := *patch.AutoCheck
+		c.XrayUpdate.AutoCheck = &v
+	}
+	if patch.IncludeGeo != nil {
+		v := *patch.IncludeGeo
+		c.XrayUpdate.IncludeGeo = &v
+	}
+}
+
 func (c *Config) AddUser(email, uuid string) error {
 	if email == "" {
 		return fmt.Errorf("email is required")
