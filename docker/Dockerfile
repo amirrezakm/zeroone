@@ -29,7 +29,7 @@ RUN npm run build
 # ---------- 2. Go daemon ----------
 # Build on $BUILDPLATFORM and cross-compile to $TARGETARCH; Go's
 # cross-compiler is native, so this stays fast for both amd64 and arm64.
-FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS daemon
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS daemon
 RUN apk add --no-cache ca-certificates
 WORKDIR /src
 COPY go.mod go.sum ./
