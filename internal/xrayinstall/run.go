@@ -73,6 +73,11 @@ func (i *Installer) Status() Status {
 // requested version (or the latest, when version is empty). Returns
 // the freshly-created Job snapshot so the panel can start polling.
 func (i *Installer) UpdateOnline(ctx context.Context, version string) (Job, error) {
+	if version != "" {
+		if err := ValidateVersionToken(version); err != nil {
+			return Job{}, err
+		}
+	}
 	job, err := i.beginJob("online")
 	if err != nil {
 		return Job{}, err
@@ -90,6 +95,11 @@ func (i *Installer) UpdateOnline(ctx context.Context, version string) (Job, erro
 // which case integrity is implicit (uploaded by an authenticated
 // admin). When set, sha mismatch fails the job before any swap.
 func (i *Installer) UpdateFromUpload(ctx context.Context, zipPath, expectedSHA, version string) (Job, error) {
+	if version != "" {
+		if err := ValidateVersionToken(version); err != nil {
+			return Job{}, err
+		}
+	}
 	job, err := i.beginJob("upload")
 	if err != nil {
 		return Job{}, err
@@ -147,6 +157,10 @@ func (i *Installer) runOnline(ctx context.Context, j *Job, requested string) {
 		i.fail(j, errors.New("no target version"))
 		return
 	}
+	if err := ValidateVersionToken(version); err != nil {
+		i.fail(j, err)
+		return
+	}
 	asset := AssetName()
 	zipURL := i.releaseAssetURL(version, asset)
 	dgstURL := zipURL + ".dgst"
@@ -160,7 +174,7 @@ func (i *Installer) runOnline(ctx context.Context, j *Job, requested string) {
 		i.fail(j, err)
 		return
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	j.setPhase(PhaseDownloading)
 	zipPath := filepath.Join(tmpDir, asset)
@@ -198,7 +212,7 @@ func (i *Installer) runOnline(ctx context.Context, j *Job, requested string) {
 func (i *Installer) runUpload(ctx context.Context, j *Job, zipPath, expectedSHA, version string) {
 	defer i.endJob(j)
 	tmpDir := filepath.Join(i.Root, "tmp", j.ID)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	j.setPhase(PhaseVerifying)
 	gotSHA, err := FileSHA256(zipPath)

@@ -5,10 +5,35 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/amirrezakm/zeroone/internal/stack"
 )
+
+func TestValidateVersionToken(t *testing.T) {
+	good := []string{"v25.1.30", "v25.2.0-rc1", "v1.0.0+build.2", "1.0.0", "25.2"}
+	for _, v := range good {
+		if err := ValidateVersionToken(v); err != nil {
+			t.Errorf("expected %q to be valid, got %v", v, err)
+		}
+	}
+	bad := []string{
+		"",
+		".",
+		"..",
+		"../foo",
+		"v1.0.0/../etc",
+		`v1.0.0\..\etc`,
+		"v1.0.0 garbage",
+		strings.Repeat("v", 100),
+	}
+	for _, v := range bad {
+		if err := ValidateVersionToken(v); err == nil {
+			t.Errorf("expected %q to be rejected", v)
+		}
+	}
+}
 
 func TestCompareVersions(t *testing.T) {
 	cases := []struct {

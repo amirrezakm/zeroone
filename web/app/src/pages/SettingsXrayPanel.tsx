@@ -332,7 +332,7 @@ function JobProgress({ job }: { job: XrayJob | null }) {
       {!finished && (
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-bg dark:bg-bg-dark">
           <div
-            className="h-full bg-primary transition-[width] duration-200"
+            className="bg-primary h-full transition-[width] duration-200"
             style={{ width: `${pct}%` }}
           />
         </div>
