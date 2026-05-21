@@ -10,11 +10,13 @@ export default function DiffModal({ open, onClose }: { open: boolean; onClose: (
   const [live, setLive] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [title, setTitle] = useState("Deploy generated config");
   const apply = useApplyXray();
   const toast = useToast();
 
   useEffect(() => {
     if (!open) return;
+    setTitle("Deploy generated config");
     setLoading(true);
     setError(null);
     Promise.all([api<any>("/api/xray/generated"), api<any>("/api/xray/live")])
@@ -77,15 +79,26 @@ export default function DiffModal({ open, onClose }: { open: boolean; onClose: (
             </pre>
           )}
         </div>
-        <div className="border-border dark:border-border-dark flex items-center justify-end gap-2 border-t px-5 py-3">
+        <div className="border-border dark:border-border-dark flex items-center gap-2 border-t px-5 py-3">
+          <label className="text-muted dark:text-muted-dark text-xs" htmlFor="diff-title">
+            Snapshot title
+          </label>
+          <input
+            id="diff-title"
+            type="text"
+            className="input flex-1"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={120}
+          />
           <button className="btn" onClick={onClose}>
             Cancel
           </button>
           <button
             className="btn btn-primary"
-            disabled={apply.isPending}
+            disabled={apply.isPending || !title.trim()}
             onClick={() =>
-              apply.mutate(undefined, {
+              apply.mutate(title.trim(), {
                 onSuccess: () => {
                   toast.show("Apply succeeded", "ok");
                   onClose();

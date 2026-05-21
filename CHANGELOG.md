@@ -16,6 +16,18 @@
   `stack.json:xray_update.release_mirror`. Pinned version + auto-check
   toggles supported.
 
+## v1.2.0 — 2026-05-21
+
+### Features
+
+- titled snapshots + Xray Config panel page (30dfa31)
+
+## v1.1.1 — 2026-05-21
+
+### Bug Fixes
+
+- require login after install; close bootstrap-open hole (7c3963a)
+
 ## v1.1.0 — 2026-05-20
 
 ### Features
@@ -55,6 +67,16 @@
 
 ### Features
 
+- titled snapshots: every snapshot now carries a title, source
+  (manual/auto) and action tag. The panel prompts the operator for a
+  title on manual capture, Xray apply, and rollback. Important stack
+  mutations (xray apply, rollback, failover mode, client endpoints,
+  SOCKS, quota/bandwidth apply, direct domains) capture an auto-titled
+  snapshot before mutating. Manual snapshots are kept forever; auto
+  snapshots are pruned to a 50-entry cap.
+- new "Xray Config" panel page: single place to view the rendered
+  `xray.json`, see whether changes are pending, and run a titled
+  Apply.
 - offline install path for air-gapped Iranian deployments via
   `scripts/offline-bundle.sh` + `scripts/install-offline.sh`, with the
   full flow documented in `docs/OFFLINE-INSTALL.md`. Pulls the image

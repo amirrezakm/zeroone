@@ -98,8 +98,16 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 // me returns whoever the caller authenticated as: the session username
 // when a session cookie is present, "token:<id>" when a Bearer token was
 // used, or "" when authentication is open (bootstrap, no admins yet).
+//
+// Reads admins/session-secret fresh from disk so the React auth gate
+// flips from bootstrap to login the instant the installer's
+// `zeroone admin add` finishes — no daemon restart required.
 func (s *Server) me(w http.ResponseWriter, r *http.Request) {
-	username := auth.SessionFromRequest(r, s.cfg.Panel.SessionSecret)
+	fresh, ok := s.currentConfig(w)
+	if !ok {
+		return
+	}
+	username := auth.SessionFromRequest(r, fresh.Panel.SessionSecret)
 	authKind := ""
 	if username != "" {
 		authKind = "session"
@@ -110,8 +118,8 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 		"ok":               true,
 		"username":         username,
 		"auth":             authKind,
-		"admins_count":     len(s.cfg.Panel.Admins),
-		"bootstrap_needed": len(s.cfg.Panel.Admins) == 0,
+		"admins_count":     len(fresh.Panel.Admins),
+		"bootstrap_needed": len(fresh.Panel.Admins) == 0,
 	})
 }
 

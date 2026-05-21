@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/amirrezakm/zeroone/internal/snapshots"
 )
 
 func (s *Server) metricsHandler(w http.ResponseWriter, r *http.Request) {
@@ -120,12 +122,30 @@ func (s *Server) snapshotsCreate(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusServiceUnavailable, fmt.Errorf("snapshots not available"))
 		return
 	}
-	info, err := s.snapshots.Capture(s.configPath, s.cfg.Server.XrayConfigPath)
+	title := strings.TrimSpace(r.URL.Query().Get("title"))
+	if title == "" {
+		var req struct {
+			Title string `json:"title"`
+		}
+		// An empty/malformed body just leaves title empty — the title field
+		// itself is the required input, not the JSON envelope.
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		title = strings.TrimSpace(req.Title)
+	}
+	if title == "" {
+		s.fail(w, http.StatusBadRequest, fmt.Errorf("title is required"))
+		return
+	}
+	info, err := s.snapshots.Capture(s.configPath, s.cfg.Server.XrayConfigPath, snapshots.Info{
+		Title:  title,
+		Source: snapshots.SourceManual,
+		Action: "snapshot.create",
+	})
 	if err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	s.recordAudit(s.actor(r), "snapshot.create", info.ID, nil)
+	s.recordAudit(s.actor(r), "snapshot.create", info.ID, map[string]any{"title": title})
 	s.write(w, map[string]any{"ok": true, "snapshot": info})
 }
 
@@ -195,6 +215,10 @@ func (s *Server) snapshotsRollback(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, http.StatusBadRequest, fmt.Errorf("id query param required"))
 		return
 	}
+	// Capture the current state under an auto snapshot before the rollback
+	// overwrites it, so the operator can recover if the chosen target
+	// turns out to be wrong.
+	s.autoSnapshot(s.actor(r), "snapshot.rollback.pre", fmt.Sprintf("Before rollback to %s", id))
 	if err := s.snapshots.Rollback(id, s.configPath, s.cfg.Server.XrayConfigPath); err != nil {
 		s.fail(w, http.StatusInternalServerError, err)
 		return

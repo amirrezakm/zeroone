@@ -3,6 +3,7 @@
 package snapshots
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -12,9 +13,20 @@ import (
 	"time"
 )
 
+// Source values for Info.Source. Manual snapshots are operator-initiated
+// and kept forever; auto snapshots are taken automatically before risky
+// mutations and pruned past a cap.
+const (
+	SourceManual = "manual"
+	SourceAuto   = "auto"
+)
+
 type Info struct {
 	ID        string `json:"id"`
 	Time      int64  `json:"t"`
+	Title     string `json:"title,omitempty"`
+	Source    string `json:"source,omitempty"`
+	Action    string `json:"action,omitempty"`
 	StackPath string `json:"stack_path"`
 	XrayPath  string `json:"xray_path"`
 }
@@ -26,8 +38,9 @@ type Store struct {
 func New(dir string) *Store { return &Store{dir: dir} }
 
 // Capture writes a snapshot of stackSrc and xraySrc into a new directory
-// named with a UTC timestamp. Returns the snapshot ID (directory basename).
-func (s *Store) Capture(stackSrc, xraySrc string) (Info, error) {
+// named with a UTC timestamp, and persists Title/Source/Action from meta
+// in a sidecar meta.json so the panel can render them later.
+func (s *Store) Capture(stackSrc, xraySrc string, meta Info) (Info, error) {
 	if s.dir == "" {
 		return Info{}, errors.New("snapshot dir not configured")
 	}
@@ -44,7 +57,19 @@ func (s *Store) Capture(stackSrc, xraySrc string) (Info, error) {
 	if err := copyFile(xraySrc, xrayDst, 0o600); err != nil {
 		return Info{}, err
 	}
-	return Info{ID: id, Time: time.Now().Unix(), StackPath: stackDst, XrayPath: xrayDst}, nil
+	info := Info{
+		ID:        id,
+		Time:      time.Now().Unix(),
+		Title:     strings.TrimSpace(meta.Title),
+		Source:    meta.Source,
+		Action:    meta.Action,
+		StackPath: stackDst,
+		XrayPath:  xrayDst,
+	}
+	if err := writeMeta(dir, info); err != nil {
+		return Info{}, err
+	}
+	return info, nil
 }
 
 func (s *Store) List() ([]Info, error) {
@@ -64,12 +89,21 @@ func (s *Store) List() ([]Info, error) {
 		if err != nil {
 			continue
 		}
-		out = append(out, Info{
+		info := Info{
 			ID:        e.Name(),
 			Time:      ts.Unix(),
 			StackPath: filepath.Join(s.dir, e.Name(), "stack.json"),
 			XrayPath:  filepath.Join(s.dir, e.Name(), "xray.json"),
-		})
+		}
+		// Backward-compat: snapshots taken before the meta sidecar existed
+		// have no meta.json. Surface them with empty title/source so the
+		// panel still lists them; prune treats them as manual.
+		if m, err := readMeta(filepath.Join(s.dir, e.Name())); err == nil {
+			info.Title = m.Title
+			info.Source = m.Source
+			info.Action = m.Action
+		}
+		out = append(out, info)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Time > out[j].Time })
 	return out, nil
@@ -93,6 +127,68 @@ func (s *Store) Rollback(id, stackDst, xrayDst string) error {
 		return err
 	}
 	return nil
+}
+
+// Prune deletes the oldest auto snapshots when their count exceeds
+// maxAuto. Manual (and legacy meta-less) snapshots are never removed.
+// Returns the IDs that were deleted.
+func (s *Store) Prune(maxAuto int) ([]string, error) {
+	if maxAuto <= 0 {
+		return nil, nil
+	}
+	list, err := s.List()
+	if err != nil {
+		return nil, err
+	}
+	// list is newest-first; collect auto IDs in newest-first order and
+	// remove the tail (oldest) past the cap.
+	autos := make([]Info, 0, len(list))
+	for _, info := range list {
+		if info.Source == SourceAuto {
+			autos = append(autos, info)
+		}
+	}
+	if len(autos) <= maxAuto {
+		return nil, nil
+	}
+	var removed []string
+	for _, info := range autos[maxAuto:] {
+		if err := os.RemoveAll(filepath.Join(s.dir, info.ID)); err != nil {
+			return removed, err
+		}
+		removed = append(removed, info.ID)
+	}
+	return removed, nil
+}
+
+func writeMeta(dir string, info Info) error {
+	meta := struct {
+		Title  string `json:"title,omitempty"`
+		Source string `json:"source,omitempty"`
+		Action string `json:"action,omitempty"`
+		Time   int64  `json:"t"`
+	}{info.Title, info.Source, info.Action, info.Time}
+	buf, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "meta.json"), buf, 0o600)
+}
+
+func readMeta(dir string) (Info, error) {
+	buf, err := os.ReadFile(filepath.Join(dir, "meta.json"))
+	if err != nil {
+		return Info{}, err
+	}
+	var meta struct {
+		Title  string `json:"title,omitempty"`
+		Source string `json:"source,omitempty"`
+		Action string `json:"action,omitempty"`
+	}
+	if err := json.Unmarshal(buf, &meta); err != nil {
+		return Info{}, err
+	}
+	return Info{Title: meta.Title, Source: meta.Source, Action: meta.Action}, nil
 }
 
 func copyFile(src, dst string, mode os.FileMode) error {

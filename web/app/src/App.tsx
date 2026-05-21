@@ -15,6 +15,7 @@ import RoutesPage from "./pages/Routes";
 import Tunnels from "./pages/Tunnels";
 import Logs from "./pages/Logs";
 import Snapshots from "./pages/Snapshots";
+import XrayConfig from "./pages/XrayConfig";
 import Plugins from "./pages/Plugins";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
@@ -45,16 +46,15 @@ function AuthGate() {
   const data = me.data;
   const authed =
     !!data && (data.auth === "session" || (data.auth === "token" && !data.bootstrap_needed));
-  // Bootstrap (no admins yet) is treated as authed so the operator can
-  // reach Settings → Admins via their existing Bearer cookie/header and
-  // seed the first admin without being trapped on the login screen.
-  if (data?.bootstrap_needed) {
-    return <Inner />;
-  }
   if (!authed) {
+    // In bootstrap mode (no admins yet) the form switches to
+    // "create the first admin" and posts to /api/admins; otherwise it
+    // posts to /api/login. Either way the dashboard stays hidden until
+    // a session cookie exists — never render <Inner /> for an
+    // unauthenticated caller.
     return (
       <Login
-        bootstrapNeeded={false}
+        bootstrapNeeded={!!data?.bootstrap_needed}
         onLoggedIn={() => {
           qc.invalidateQueries({ queryKey: ["me"] });
         }}
@@ -82,6 +82,7 @@ function Inner() {
             <Route path="/tunnels" element={<Tunnels />} />
             <Route path="/logs" element={<Logs />} />
             <Route path="/snapshots" element={<Snapshots />} />
+            <Route path="/xray-config" element={<XrayConfig />} />
             <Route path="/plugins" element={<Plugins />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>

@@ -201,6 +201,9 @@ export type AuditEntry = {
 export type SnapshotInfo = {
   id: string;
   t: number;
+  title?: string;
+  source?: "manual" | "auto" | string;
+  action?: string;
   stack_path: string;
   xray_path: string;
 };
