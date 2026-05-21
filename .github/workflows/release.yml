@@ -339,7 +339,7 @@ jobs:
           install -m 0755 scripts/install.sh                     "dist/${PKG}/scripts/install.sh"
           tar -C dist -czf "dist/${PKG}.tar.gz" "${PKG}"
           (cd dist && sha256sum "${PKG}.tar.gz" > "${PKG}.tar.gz.sha256")
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: tarball-${{ matrix.arch }}
           path: |
@@ -384,7 +384,7 @@ jobs:
           # script themselves default to the Runflare Docker mirror.
           ZEROONE_IMAGE_SRC: ghcr.io/${{ github.repository }}
         run: bash scripts/offline-bundle.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: offline-bundle-${{ matrix.arch }}
           path: |
