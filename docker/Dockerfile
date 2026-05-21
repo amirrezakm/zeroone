@@ -48,7 +48,7 @@ RUN GOARCH=${TARGETARCH} go build \
 # ---------- 3. Xray binary ----------
 # Just curls a prebuilt binary keyed off TARGETARCH — no need to emulate
 # the target architecture for that.
-FROM --platform=$BUILDPLATFORM alpine:3.20 AS xray
+FROM --platform=$BUILDPLATFORM alpine:3.23 AS xray
 ARG XRAY_VERSION
 ARG TARGETARCH
 RUN apk add --no-cache curl unzip ca-certificates && \
@@ -65,7 +65,7 @@ RUN apk add --no-cache curl unzip ca-certificates && \
     rm /tmp/xray.zip
 
 # ---------- 4. Runtime ----------
-FROM alpine:3.20
+FROM alpine:3.23
 ARG VERSION=dev
 ARG XRAY_VERSION
 LABEL org.opencontainers.image.source="https://github.com/amirrezakm/zeroone" \
