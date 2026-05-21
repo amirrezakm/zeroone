@@ -212,16 +212,26 @@ func (s *Server) tokenAuth(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		// Read the admin/token list fresh from disk so credentials added
+		// out-of-band (e.g. `zeroone admin add` from the installer) take
+		// effect immediately without a daemon restart. Fail closed when
+		// the config can't be loaded — we never want a transient read
+		// error to open up every endpoint.
+		fresh, err := stack.Load(s.configPath)
+		if err != nil {
+			s.fail(w, http.StatusUnauthorized, fmt.Errorf("login required"))
+			return
+		}
 		// Accept either a valid session cookie or a recognised Bearer token.
 		// During the bootstrap window — admins not yet seeded — we fall back
 		// to the Bearer-only behaviour so the operator can call POST
 		// /api/admins via curl using an existing panel token.
-		if username := auth.SessionFromRequest(r, s.cfg.Panel.SessionSecret); username != "" {
+		if username := auth.SessionFromRequest(r, fresh.Panel.SessionSecret); username != "" {
 			next.ServeHTTP(w, r)
 			return
 		}
-		hashes := make([]string, 0, len(s.cfg.Panel.Tokens))
-		for _, t := range s.cfg.Panel.Tokens {
+		hashes := make([]string, 0, len(fresh.Panel.Tokens))
+		for _, t := range fresh.Panel.Tokens {
 			hashes = append(hashes, t.Hash)
 		}
 		matched, ok := auth.LookupHash(r, hashes)
@@ -229,10 +239,21 @@ func (s *Server) tokenAuth(next http.Handler) http.Handler {
 			s.fail(w, http.StatusUnauthorized, fmt.Errorf("invalid bearer token"))
 			return
 		}
-		if matched == "" && len(s.cfg.Panel.Admins) > 0 {
-			// Admins exist but caller presented no credentials — require login.
-			s.fail(w, http.StatusUnauthorized, fmt.Errorf("login required"))
-			return
+		if matched == "" {
+			if len(fresh.Panel.Admins) > 0 {
+				// Admins exist but caller presented no credentials — require login.
+				s.fail(w, http.StatusUnauthorized, fmt.Errorf("login required"))
+				return
+			}
+			// Bootstrap window: no admins on disk yet. Only allow the
+			// open path for callers on loopback, so a remote attacker
+			// who hits the panel during the install gap can't take it
+			// over. The installer runs `zeroone admin add` via
+			// `docker exec` against localhost, so it is unaffected.
+			if !isLoopbackRemote(r) {
+				s.fail(w, http.StatusUnauthorized, fmt.Errorf("login required"))
+				return
+			}
 		}
 		if matched != "" {
 			go s.touchToken(matched)
@@ -241,11 +262,36 @@ func (s *Server) tokenAuth(next http.Handler) http.Handler {
 	})
 }
 
+// isLoopbackRemote reports whether the request originated on the same
+// host as the daemon. Used to gate the bootstrap-open auth path so the
+// install flow keeps working while remote callers stay locked out.
+func isLoopbackRemote(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	if host == "" {
+		return false
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return host == "localhost"
+	}
+	return ip.IsLoopback()
+}
+
+// touchToken updates the LastUsed timestamp for the given token hash.
+// It reloads from disk + saves so a CLI-added admin or token can't be
+// silently clobbered by an in-memory write of the stale s.cfg.
 func (s *Server) touchToken(hash string) {
-	for i := range s.cfg.Panel.Tokens {
-		if s.cfg.Panel.Tokens[i].Hash == hash {
-			s.cfg.Panel.Tokens[i].LastUsed = time.Now().Unix()
-			_ = stack.Save(s.configPath, s.cfg)
+	cfg, err := stack.Load(s.configPath)
+	if err != nil {
+		return
+	}
+	for i := range cfg.Panel.Tokens {
+		if cfg.Panel.Tokens[i].Hash == hash {
+			cfg.Panel.Tokens[i].LastUsed = time.Now().Unix()
+			_ = stack.Save(s.configPath, *cfg)
 			return
 		}
 	}

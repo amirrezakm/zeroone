@@ -264,6 +264,13 @@ cmd_install() {
         warn "  zeroone cli admin add -config /var/lib/zeroone/stack.json -username ${ADMIN_USER} -password ..."
     else
         ok "admin '${ADMIN_USER}' created"
+        # The CLI wrote the admin straight to stack.json, but the
+        # already-running daemon caches parts of the config in memory.
+        # Restart so every code path — not just the auth middleware —
+        # sees the new admin from a clean slate.
+        log "restarting daemon to load admin"
+        dc restart zeroone >/dev/null
+        wait_for_health 60 || true
     fi
 
     print_summary
