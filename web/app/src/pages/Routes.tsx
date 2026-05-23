@@ -51,7 +51,7 @@ export default function RoutesPage() {
           {socks.map((s) => (
             <div
               key={s.name}
-              className="grid items-center gap-2 px-5 py-3 text-sm sm:grid-cols-[2fr,1fr,1fr,1fr,auto]"
+              className="grid items-center gap-2 px-5 py-3 text-sm sm:grid-cols-[2fr_1fr_1fr_1fr_auto]"
             >
               <div className="truncate font-medium">{s.name}</div>
               <div className="font-mono text-xs">
@@ -187,7 +187,7 @@ function InboundTrafficPanel() {
         </div>
       ) : (
         <>
-          <div className="table-head grid grid-cols-[1.4fr,1fr,1fr,1fr,1fr] px-4 py-2">
+          <div className="table-head grid grid-cols-[1.4fr_1fr_1fr_1fr_1fr] px-4 py-2">
             <div>Tag</div>
             <div>Total</div>
             <div title="Cumulative bytes from clients to server">↑ Uplink</div>
@@ -198,7 +198,7 @@ function InboundTrafficPanel() {
             {rows.map((r) => (
               <div
                 key={r.tag}
-                className="grid grid-cols-[1.4fr,1fr,1fr,1fr,1fr] items-center gap-2 px-4 py-2.5 text-sm"
+                className="grid grid-cols-[1.4fr_1fr_1fr_1fr_1fr] items-center gap-2 px-4 py-2.5 text-sm"
               >
                 <div className="truncate font-mono text-xs" title={r.tag}>
                   {r.tag}
@@ -289,7 +289,7 @@ function SOCKSDialog({
             disabled={editing}
           />
         </div>
-        <div className="grid grid-cols-[2fr,1fr] gap-2">
+        <div className="grid grid-cols-[2fr_1fr] gap-2">
           <div>
             <label className="kpi-label">Listen</label>
             <input

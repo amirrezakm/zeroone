@@ -181,7 +181,7 @@ export default function Users() {
         </div>
         <div className="overflow-x-auto">
           <div className="min-w-[80rem]">
-            <div className="table-head grid grid-cols-[1.6fr,1fr,1.2fr,1.1fr,1.1fr,1fr,auto]">
+            <div className="table-head grid grid-cols-[1.6fr_1fr_1.2fr_1.1fr_1.1fr_1fr_auto]">
               <div>Email</div>
               <div>Status</div>
               <div title="Distinct client IPs in last 5m · new flows /5m">Devices · /5m · IPs</div>
@@ -399,7 +399,7 @@ function UserRow({
 
   return (
     <div
-      className="hover:bg-bg dark:hover:bg-bg-dark grid cursor-pointer grid-cols-[1.6fr,1fr,1.2fr,1.1fr,1.1fr,1fr,auto] items-center gap-3 px-4 py-3 text-sm"
+      className="hover:bg-bg dark:hover:bg-bg-dark grid cursor-pointer grid-cols-[1.6fr_1fr_1.2fr_1.1fr_1.1fr_1fr_auto] items-center gap-3 px-4 py-3 text-sm"
       onClick={onOpen}
     >
       <div>

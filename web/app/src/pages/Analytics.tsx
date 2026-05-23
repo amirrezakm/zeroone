@@ -238,7 +238,7 @@ function TopDestinations() {
         </div>
       ) : (
         <div>
-          <div className="table-head grid grid-cols-[60px,1fr,160px,180px] px-4 py-2">
+          <div className="table-head grid grid-cols-[60px_1fr_160px_180px] px-4 py-2">
             <div className="pr-2 text-right">#</div>
             <div>Destination</div>
             <div className="text-right">Requests</div>
@@ -250,7 +250,7 @@ function TopDestinations() {
               return (
                 <div
                   key={it.destination}
-                  className="grid grid-cols-[60px,1fr,160px,180px] items-center gap-2 px-4 py-2 text-sm"
+                  className="grid grid-cols-[60px_1fr_160px_180px] items-center gap-2 px-4 py-2 text-sm"
                 >
                   <div className="text-muted dark:text-muted-dark pr-2 text-right tabular-nums">
                     {idx + 1}

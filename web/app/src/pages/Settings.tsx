@@ -320,7 +320,7 @@ function ClientEndpointsPanel() {
           <RefreshCw size={12} className={health.isFetching ? "animate-spin" : ""} /> Check
         </button>
       </div>
-      <div className="grid gap-0 lg:grid-cols-[1.1fr,1.4fr]">
+      <div className="grid gap-0 lg:grid-cols-[1.1fr_1.4fr]">
         <form
           className="border-border dark:border-border-dark space-y-3 border-b p-5 lg:border-r lg:border-b-0"
           onSubmit={save}
@@ -345,7 +345,7 @@ function ClientEndpointsPanel() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-[1fr,1fr,1fr] gap-2">
+          <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
             <div>
               <label className="kpi-label">Port</label>
               <input
@@ -429,7 +429,7 @@ function ClientEndpointsPanel() {
           {endpoints.map((ep) => (
             <div
               key={ep.name}
-              className="grid items-center gap-3 px-5 py-3 text-sm sm:grid-cols-[1fr,1.6fr,auto]"
+              className="grid items-center gap-3 px-5 py-3 text-sm sm:grid-cols-[1fr_1.6fr_auto]"
             >
               <div>
                 <div className="font-medium">{ep.name}</div>
@@ -560,7 +560,7 @@ function TokensPanel() {
         {(data?.tokens ?? []).map((t) => (
           <div
             key={t.id}
-            className="grid grid-cols-[1fr,1fr,auto] items-center gap-3 px-5 py-3 text-sm"
+            className="grid grid-cols-[1fr_1fr_auto] items-center gap-3 px-5 py-3 text-sm"
           >
             <div>
               <div className="font-medium">{t.id}</div>

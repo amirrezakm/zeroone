@@ -33,7 +33,7 @@ export default function Snapshots() {
         }
       />
       <div className="panel">
-        <div className="table-head grid grid-cols-[180px,90px,1fr,160px,auto] px-4 py-2">
+        <div className="table-head grid grid-cols-[180px_90px_1fr_160px_auto] px-4 py-2">
           <div>ID</div>
           <div>Source</div>
           <div>Title</div>
@@ -49,7 +49,7 @@ export default function Snapshots() {
           {list.map((s) => (
             <div
               key={s.id}
-              className="grid grid-cols-[180px,90px,1fr,160px,auto] items-center px-4 py-3 text-sm"
+              className="grid grid-cols-[180px_90px_1fr_160px_auto] items-center px-4 py-3 text-sm"
             >
               <div className="font-mono text-xs">{s.id}</div>
               <div>

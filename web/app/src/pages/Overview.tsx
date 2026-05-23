@@ -130,7 +130,7 @@ export default function Overview() {
           {(online.data?.users ?? []).map((u) => (
             <div
               key={u.email}
-              className="grid grid-cols-[1.4fr,1fr,1fr,2fr] items-center gap-3 px-5 py-3 text-sm"
+              className="grid grid-cols-[1.4fr_1fr_1fr_2fr] items-center gap-3 px-5 py-3 text-sm"
             >
               <div className="flex min-w-0 items-center gap-2">
                 <span className="bg-ok dark:bg-ok-dark h-2 w-2 shrink-0 animate-pulse rounded-full" />
