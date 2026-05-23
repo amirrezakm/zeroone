@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.1 — 2026-05-23
+
+### Bug Fixes
+
+- upgrade Go toolchain to 1.25.10 and golang.org/x/net to v0.55.0 (8124c7b)
+
+### Documentation
+
+- add AGENTS.md with Cursor Cloud development instructions (f6c361d)
+
 ## v0.2.2 — 2026-05-23
 
 ### Bug Fixes
