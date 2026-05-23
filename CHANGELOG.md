@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.2 — 2026-05-23
+
+### Bug Fixes
+
+- abort edit mode when live config refetch fails (2fb3f43)
+- seed xray config edit buffer from live config, not stack render (1ba4287)
+- seed live xray.json on boot + editable config editor (457f514)
+
 ## v1.4.1 — 2026-05-23
 
 ### Bug Fixes
