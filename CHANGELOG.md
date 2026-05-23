@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.3.0 — 2026-05-23
+
+### Features
+
+- auto-discover and extract bundle on `zeroone update` (b510cd3)
+
+### Bug Fixes
+
+- verify bundle by digest, not sidecar filename (f0a84e3)
+- use if-block in temp cleanup to satisfy shellcheck (SC2015) (263b402)
+
 ## v1.4.1 — 2026-05-23
 
 ### Bug Fixes
