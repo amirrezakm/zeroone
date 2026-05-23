@@ -73,6 +73,36 @@ func (m Manager) Render(cfg stack.Config) ([]byte, error) {
 	return json.MarshalIndent(Generate(cfg), "", "  ")
 }
 
+// EnsureConfigFile writes the rendered xray config to XrayConfigPath when
+// the file does not exist yet. On a fresh install nothing else writes the
+// live config until the first apply, which means xray can't start and
+// snapshots/live-diff fail with "no such file or directory". This seeds the
+// file once. It never overwrites an existing file — stack.json stays the
+// source of truth and apply remains the only path that mutates a live config.
+func EnsureConfigFile(cfg stack.Config) error {
+	path := cfg.Server.XrayConfigPath
+	if path == "" {
+		return nil
+	}
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	rendered, err := (Manager{}).Render(cfg)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	tmp := path + ".tmp-go-ensure"
+	if err := os.WriteFile(tmp, append(rendered, '\n'), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
 func (m Manager) Validate(ctx context.Context, cfg stack.Config, rendered []byte) error {
 	tmp, err := os.CreateTemp("", "zeroone-*.json")
 	if err != nil {
@@ -135,6 +165,50 @@ func (m Manager) Apply(ctx context.Context, cfg stack.Config) (ApplyPlan, error)
 		}
 	}
 	tmp := cfg.Server.XrayConfigPath + ".tmp-go-apply"
+	if err := os.WriteFile(tmp, append(rendered, '\n'), 0o644); err != nil {
+		return plan, err
+	}
+	if err := os.Rename(tmp, cfg.Server.XrayConfigPath); err != nil {
+		return plan, err
+	}
+	plan.BackupPath = backupPath
+	if err := activeRestarter.Restart(ctx, m.Runner); err != nil {
+		return plan, fmt.Errorf("restart xray: %w", err)
+	}
+	return plan, nil
+}
+
+// ApplyRaw writes an operator-supplied xray config straight to the live file
+// and restarts xray, instead of rendering from stack.json. The config is
+// validated with `xray run -test` first so an invalid config never replaces a
+// working one. The current file is backed up like a normal apply. Note this
+// edit is transient: the next stack-based Apply regenerates xray.json from
+// stack.json and overwrites it.
+func (m Manager) ApplyRaw(ctx context.Context, cfg stack.Config, rendered []byte) (ApplyPlan, error) {
+	plan := ApplyPlan{ConfigPath: cfg.Server.XrayConfigPath}
+	if err := m.Validate(ctx, cfg, rendered); err != nil {
+		return plan, err
+	}
+	current, _ := os.ReadFile(cfg.Server.XrayConfigPath)
+	plan.Changed = string(current) != string(rendered)+"\n" && string(current) != string(rendered)
+	if !plan.Changed {
+		return plan, nil
+	}
+	backupDir := cfg.Server.BackupDir
+	if backupDir == "" {
+		backupDir = "/root/xray-audit-backups"
+	}
+	stamp := time.Now().Format("20060102-150405-go-apply-raw")
+	backupPath := filepath.Join(backupDir, stamp, "config.json")
+	if err := os.MkdirAll(filepath.Dir(backupPath), 0o755); err != nil {
+		return plan, err
+	}
+	if len(current) > 0 {
+		if err := os.WriteFile(backupPath, current, 0o600); err != nil {
+			return plan, err
+		}
+	}
+	tmp := cfg.Server.XrayConfigPath + ".tmp-go-apply-raw"
 	if err := os.WriteFile(tmp, append(rendered, '\n'), 0o644); err != nil {
 		return plan, err
 	}

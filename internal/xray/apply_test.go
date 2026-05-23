@@ -2,6 +2,7 @@ package xray
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -46,6 +47,65 @@ func TestPlanReportsChangedLiveConfig(t *testing.T) {
 	}
 	if !plan.Changed {
 		t.Fatalf("expected changed plan: %+v", plan)
+	}
+}
+
+func TestEnsureConfigFileWritesWhenMissing(t *testing.T) {
+	cfg := minimalConfig(t)
+	if _, err := os.Stat(cfg.Server.XrayConfigPath); !os.IsNotExist(err) {
+		t.Fatalf("expected no file yet, got err=%v", err)
+	}
+	if err := EnsureConfigFile(cfg); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(cfg.Server.XrayConfigPath)
+	if err != nil {
+		t.Fatalf("file not written: %v", err)
+	}
+	var doc any
+	if err := json.Unmarshal(b, &doc); err != nil {
+		t.Fatalf("written config is not valid JSON: %v", err)
+	}
+}
+
+func TestEnsureConfigFileLeavesExistingUntouched(t *testing.T) {
+	cfg := minimalConfig(t)
+	const sentinel = "{\"keep\":true}\n"
+	if err := os.WriteFile(cfg.Server.XrayConfigPath, []byte(sentinel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := EnsureConfigFile(cfg); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(cfg.Server.XrayConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != sentinel {
+		t.Fatalf("existing file was overwritten: %q", string(b))
+	}
+}
+
+func TestApplyRawWritesProvidedConfig(t *testing.T) {
+	cfg := minimalConfig(t)
+	m := Manager{Runner: fakeRunner{}}
+	if err := os.WriteFile(cfg.Server.XrayConfigPath, []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	raw := []byte("{\n  \"log\": {\n    \"loglevel\": \"warning\"\n  }\n}")
+	plan, err := m.ApplyRaw(context.Background(), cfg, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.Changed {
+		t.Fatalf("expected changed plan: %+v", plan)
+	}
+	got, err := os.ReadFile(cfg.Server.XrayConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(raw)+"\n" {
+		t.Fatalf("live config mismatch:\n got=%q\nwant=%q", string(got), string(raw)+"\n")
 	}
 }
 

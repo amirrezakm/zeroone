@@ -247,6 +247,14 @@ func main() {
 		}
 	}()
 
+	// Seed the live xray config on first boot. Without this, a fresh install
+	// has no xray.json until the first apply, so xray can't start and manual
+	// snapshots fail reading a missing file. Non-fatal: a render hiccup must
+	// never block daemon startup.
+	if err := xrayinternal.EnsureConfigFile(*cfg); err != nil {
+		slog.Error("ensure xray config", "err", err)
+	}
+
 	ctx := ctxRoot
 	if *manageXray {
 		// Run xray as a child process; wire it in as the active

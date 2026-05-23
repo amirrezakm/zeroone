@@ -87,6 +87,7 @@ func NewServerWithOptions(cfg stack.Config, configPath string, allowApply bool, 
 	mux.HandleFunc("GET /api/xray/traffic", s.xrayTraffic)
 	mux.HandleFunc("GET /api/xray/apply-plan", s.xrayApplyPlan)
 	mux.HandleFunc("POST /api/xray/apply", s.xrayApply)
+	mux.HandleFunc("PUT /api/xray/live", s.xrayApplyRaw)
 	mux.HandleFunc("GET /api/xray/version", s.xrayVersion)
 	mux.HandleFunc("GET /api/xray/version/check", s.xrayVersionCheck)
 	mux.HandleFunc("POST /api/xray/update", s.xrayUpdate)
@@ -1078,6 +1079,71 @@ func (s *Server) xrayApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.recordAudit(s.actor(r), "xray.apply", "", map[string]any{"changed": plan.Changed, "backup_path": plan.BackupPath, "title": title})
+	s.write(w, map[string]any{"ok": true, "plan": plan})
+}
+
+// xrayApplyRaw writes an operator-edited xray config straight to the live
+// file. The config is validated with `xray run -test` before it replaces the
+// running one. This bypasses the stack→render pipeline, so the edit is
+// transient: the next stack-based apply regenerates xray.json and overwrites
+// it. A snapshot is captured first so the prior config is recoverable.
+func (s *Server) xrayApplyRaw(w http.ResponseWriter, r *http.Request) {
+	if !s.allowApply {
+		s.fail(w, http.StatusForbidden, fmt.Errorf("apply is disabled; start with -allow-apply"))
+		return
+	}
+	cfg, ok := s.currentConfig(w)
+	if !ok {
+		return
+	}
+	var req struct {
+		Config json.RawMessage `json:"config"`
+		Title  string          `json:"title"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.fail(w, http.StatusBadRequest, err)
+		return
+	}
+	// Re-marshal through a generic value so we accept either a JSON object or
+	// a JSON-encoded string of the config, and reject anything unparseable
+	// before it touches the live file.
+	var doc any
+	if err := json.Unmarshal(req.Config, &doc); err != nil {
+		s.fail(w, http.StatusBadRequest, fmt.Errorf("config is not valid JSON: %w", err))
+		return
+	}
+	if str, isStr := doc.(string); isStr {
+		if err := json.Unmarshal([]byte(str), &doc); err != nil {
+			s.fail(w, http.StatusBadRequest, fmt.Errorf("config is not valid JSON: %w", err))
+			return
+		}
+	}
+	rendered, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		s.fail(w, http.StatusBadRequest, err)
+		return
+	}
+	title := strings.TrimSpace(req.Title)
+	if title == "" {
+		title = "Apply edited Xray config"
+	}
+	if s.snapshots != nil {
+		_ = xray.EnsureConfigFile(cfg)
+		if _, err := s.snapshots.Capture(s.configPath, cfg.Server.XrayConfigPath, snapshots.Info{
+			Title:  title,
+			Source: snapshots.SourceManual,
+			Action: "xray.apply.raw",
+		}); err != nil {
+			s.recordAudit(s.actor(r), "snapshot.error", "", map[string]any{"error": err.Error()})
+		}
+	}
+	plan, err := (xray.Manager{}).ApplyRaw(r.Context(), cfg, rendered)
+	if err != nil {
+		s.recordAudit(s.actor(r), "xray.apply.raw.failed", "", map[string]any{"error": err.Error()})
+		s.fail(w, 500, err)
+		return
+	}
+	s.recordAudit(s.actor(r), "xray.apply.raw", "", map[string]any{"changed": plan.Changed, "backup_path": plan.BackupPath, "title": title})
 	s.write(w, map[string]any{"ok": true, "plan": plan})
 }
 

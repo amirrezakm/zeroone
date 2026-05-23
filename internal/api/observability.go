@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/amirrezakm/zeroone/internal/snapshots"
+	"github.com/amirrezakm/zeroone/internal/xray"
 )
 
 func (s *Server) metricsHandler(w http.ResponseWriter, r *http.Request) {
@@ -135,6 +136,11 @@ func (s *Server) snapshotsCreate(w http.ResponseWriter, r *http.Request) {
 	if title == "" {
 		s.fail(w, http.StatusBadRequest, fmt.Errorf("title is required"))
 		return
+	}
+	// Seed the live config if it's missing so a manual snapshot on a fresh
+	// install can't fail copying a not-yet-written xray.json.
+	if err := xray.EnsureConfigFile(s.cfg); err != nil {
+		s.recordAudit(s.actor(r), "snapshot.error", "", map[string]any{"error": err.Error()})
 	}
 	info, err := s.snapshots.Capture(s.configPath, s.cfg.Server.XrayConfigPath, snapshots.Info{
 		Title:  title,
