@@ -58,16 +58,23 @@ zeroone backup       # tar up state to /root/zeroone-backup-*.tgz
 
 ## ⬆️ Upgrading
 
-🆕 A new version came out? Repeat the same 3 steps with the new bundle.
-On the server, after extracting the new tarball:
+🆕 A new version came out? Just SFTP the new bundle to the server (same
+as step 2) and run one command:
 
 ```bash
-mkdir -p /root/zeroone-new
-tar -xzf zeroone-offline-vNEW-amd64.tar.gz -C /root/zeroone-new
-sudo zeroone update -b /root/zeroone-new
+sudo zeroone update
 ```
 
+It finds the newest `zeroone-offline-*.tar.gz` you uploaded (it checks
+your home dir, the current dir, `/tmp`, and the install dirs), verifies
+its `.sha256` if present, extracts it, and swaps in the new image — no
+manual `tar` needed.
+
 🛡️ Your admins, users, and config are preserved.
+
+> Want to point at a specific file or a directory you already extracted?
+> `sudo zeroone update -a /path/to/bundle.tar.gz` or
+> `sudo zeroone update -b /path/to/extracted-dir`.
 
 ---
 
@@ -210,6 +217,10 @@ zeroone cli admin add -config /var/lib/zeroone/stack.json \
 ```bash
 sudo bash install-offline.sh --bundle /path/to/extracted/dir  # explicit bundle dir
 sudo bash install-offline.sh --force                          # overwrite existing .env
+
+sudo zeroone update                       # auto-discover the newest uploaded bundle
+sudo zeroone update -a bundle.tar.gz      # update from a specific archive
+sudo zeroone update -b /path/to/extracted # update from an already-extracted dir
 ```
 
 ### 🔗 Related docs
