@@ -354,7 +354,7 @@ function FailoverHistoryRow({ entry: e }: { entry: FailoverHistoryEntry }) {
   const sameInterface = fromLabel === toLabel;
   const failed = !!e.error;
   return (
-    <div className="grid grid-cols-[20px,160px,1fr,1fr] items-center gap-3 px-5 py-2.5 text-sm">
+    <div className="grid grid-cols-[20px_160px_1fr_1fr] items-center gap-3 px-5 py-2.5 text-sm">
       <div
         title={failed ? "failed" : "succeeded"}
         className={failed ? "text-bad dark:text-bad-dark" : "text-ok dark:text-ok-dark"}

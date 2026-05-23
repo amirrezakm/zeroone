@@ -153,7 +153,7 @@ export default function SettingsXrayPanel() {
         </div>
       </div>
 
-      <div className="grid gap-0 lg:grid-cols-[1.2fr,1fr]">
+      <div className="grid gap-0 lg:grid-cols-[1.2fr_1fr]">
         <div className="border-border dark:border-border-dark space-y-3 border-b p-5 lg:border-r lg:border-b-0">
           <StatusRow label="Installed">
             <span className="font-mono text-sm">{installed || "—"}</span>
@@ -295,7 +295,7 @@ export default function SettingsXrayPanel() {
 
 function StatusRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[8rem,1fr] items-center gap-3">
+    <div className="grid grid-cols-[8rem_1fr] items-center gap-3">
       <div className="kpi-label">{label}</div>
       <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>

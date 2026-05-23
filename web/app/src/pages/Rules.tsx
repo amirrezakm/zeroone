@@ -88,7 +88,7 @@ export default function Rules() {
       </section>
 
       <div className="panel">
-        <div className="table-head grid grid-cols-[1fr,3fr,1fr,1fr,auto] px-4 py-2">
+        <div className="table-head grid grid-cols-[1fr_3fr_1fr_1fr_auto] px-4 py-2">
           <div>Kind</div>
           <div>Matcher</div>
           <div>Action</div>
@@ -99,7 +99,7 @@ export default function Rules() {
           {rows.map((r, i) => (
             <div
               key={i}
-              className="grid grid-cols-[1fr,3fr,1fr,1fr,auto] items-center gap-3 px-4 py-2.5 text-sm"
+              className="grid grid-cols-[1fr_3fr_1fr_1fr_auto] items-center gap-3 px-4 py-2.5 text-sm"
             >
               <div className="flex items-center gap-2">
                 <Globe size={12} className="text-muted" />

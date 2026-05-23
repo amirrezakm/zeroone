@@ -135,7 +135,7 @@ function AuditTab() {
   const entries = audit.data?.entries ?? [];
   return (
     <>
-      <div className="table-head grid grid-cols-[140px,1fr,160px,1fr] px-4 py-2">
+      <div className="table-head grid grid-cols-[140px_1fr_160px_1fr] px-4 py-2">
         <div>Time</div>
         <div>Action</div>
         <div>Actor</div>
@@ -148,7 +148,7 @@ function AuditTab() {
         {entries.map((e, i) => (
           <div
             key={i}
-            className="grid grid-cols-[140px,1fr,160px,1fr] items-start gap-2 px-4 py-2 text-sm"
+            className="grid grid-cols-[140px_1fr_160px_1fr] items-start gap-2 px-4 py-2 text-sm"
           >
             <div className="text-muted dark:text-muted-dark font-mono text-xs whitespace-nowrap">
               {formatTime(e.t)}

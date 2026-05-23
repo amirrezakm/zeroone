@@ -287,7 +287,7 @@ function RelaySitesPanel({ data }: { data: RelayConfigView }) {
           </p>
         </div>
       </div>
-      <div className="border-border dark:border-border-dark grid grid-cols-[1fr,1fr,auto] items-center gap-2 border-b px-5 py-3">
+      <div className="border-border dark:border-border-dark grid grid-cols-[1fr_1fr_auto] items-center gap-2 border-b px-5 py-3">
         <input
           className="input text-xs"
           placeholder="example.com or domain:keyword"
@@ -319,7 +319,7 @@ function RelaySitesPanel({ data }: { data: RelayConfigView }) {
           {data.sites.map((s) => (
             <div
               key={s.domain}
-              className="grid grid-cols-[1fr,2fr,auto,auto] items-center gap-3 px-5 py-2.5 text-sm"
+              className="grid grid-cols-[1fr_2fr_auto_auto] items-center gap-3 px-5 py-2.5 text-sm"
             >
               <div className="font-mono text-xs break-all">{s.domain}</div>
               <div className="text-muted dark:text-muted-dark truncate text-xs">

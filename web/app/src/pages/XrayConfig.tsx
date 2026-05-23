@@ -61,7 +61,7 @@ export default function XrayConfig() {
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
+      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <section className="panel">
           <div className="border-border dark:border-border-dark flex items-center justify-between border-b px-4 py-2">
             <div className="text-sm font-medium">Generated xray.json</div>

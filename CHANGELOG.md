@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.3.2 — 2026-05-23
+
+### Bug Fixes
+
+- restore table layouts broken by Tailwind v4 migration (23b2c25)
+
 ## v0.2.0 — 2026-05-21
 
 ### Features
