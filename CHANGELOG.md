@@ -1,12 +1,15 @@
 # Changelog
 
-## v1.4.2 — 2026-05-23
+## v0.3.0 — 2026-05-23
+
+### Features
+
+- auto-discover and extract bundle on `zeroone update` (b510cd3)
 
 ### Bug Fixes
 
-- abort edit mode when live config refetch fails (2fb3f43)
-- seed xray config edit buffer from live config, not stack render (1ba4287)
-- seed live xray.json on boot + editable config editor (457f514)
+- verify bundle by digest, not sidecar filename (f0a84e3)
+- use if-block in temp cleanup to satisfy shellcheck (SC2015) (263b402)
 
 ## v1.4.1 — 2026-05-23
 
