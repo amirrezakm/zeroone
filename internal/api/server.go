@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -1644,31 +1645,43 @@ func (s *Server) ui(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) serveUI(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "" || r.URL.Path == "/" {
-		http.ServeFile(w, r, filepath.Join(s.cfg.Server.UIPath, "index.html"))
-		return
+	uiRoot := s.cfg.Server.UIPath
+	// Normalise the request path to a clean, slash-rooted form, then strip the
+	// leading slash so it is relative to the UI root.
+	rel := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
+	// filepath.IsLocal is the canonical Go containment check (no absolute
+	// paths, no "..", no Windows volume names) and is recognised by static
+	// analysis as a path-injection barrier. Only a local path that resolves to
+	// a real file inside the UI root is served directly; everything else —
+	// "/", unknown client-side routes, and any escape attempt — falls through
+	// to the SPA shell.
+	if rel != "" && filepath.IsLocal(rel) {
+		target := filepath.Join(uiRoot, filepath.FromSlash(rel))
+		if st, err := os.Stat(target); err == nil && !st.IsDir() {
+			serveSPAFile(w, r, target)
+			return
+		}
 	}
-	rel := strings.TrimPrefix(filepath.Clean(r.URL.Path), string(filepath.Separator))
-	path := filepath.Join(s.cfg.Server.UIPath, rel)
-	root, err := filepath.Abs(s.cfg.Server.UIPath)
+	serveSPAFile(w, r, filepath.Join(uiRoot, "index.html"))
+}
+
+// serveSPAFile writes a single file with http.ServeContent. Unlike
+// http.ServeFile it does not inspect r.URL.Path (the caller already validated
+// the target, so containment is settled) and does not redirect "/index.html"
+// to its directory — the SPA shell must be served in place.
+func serveSPAFile(w http.ResponseWriter, r *http.Request, name string) {
+	f, err := os.Open(name)
 	if err != nil {
-		s.fail(w, 500, err)
-		return
-	}
-	target, err := filepath.Abs(path)
-	if err != nil {
-		s.fail(w, 500, err)
-		return
-	}
-	if target != root && !strings.HasPrefix(target, root+string(filepath.Separator)) {
 		http.NotFound(w, r)
 		return
 	}
-	if st, err := os.Stat(target); err == nil && !st.IsDir() {
-		http.ServeFile(w, r, target)
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil || st.IsDir() {
+		http.NotFound(w, r)
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.Server.UIPath, "index.html"))
+	http.ServeContent(w, r, filepath.Base(name), st.ModTime(), f)
 }
 
 func fileExists(path string) bool {

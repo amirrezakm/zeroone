@@ -4,9 +4,10 @@
 // where payload is base64url(<username>|<expires_unix>). Username is restricted
 // to printable ASCII without "|" so the split is unambiguous.
 //
-// The cookie is httpOnly + SameSite=Lax. It is marked Secure when the request
-// came in over TLS (direct or via X-Forwarded-Proto), so plain-HTTP setups
-// (local dev, IP-only servers) keep working without manual flag tweaking.
+// The cookie is HttpOnly + SameSite=Lax + Secure, so a session token is never
+// sent in cleartext. Panels should be served over HTTPS in production; modern
+// browsers treat http://localhost and http://127.0.0.1 as secure contexts for
+// the standard local-dev workflow.
 package auth
 
 import (
@@ -95,8 +96,8 @@ func hmacSig(secret, payload string) string {
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
-// SetSessionCookie writes the session cookie to the response. Marks
-// the cookie Secure when the request arrived over TLS.
+// SetSessionCookie writes the session cookie to the response. The cookie is
+// always HttpOnly + SameSite=Lax + Secure.
 func SetSessionCookie(w http.ResponseWriter, r *http.Request, token string, expires time.Time) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,
@@ -106,7 +107,7 @@ func SetSessionCookie(w http.ResponseWriter, r *http.Request, token string, expi
 		MaxAge:   int(time.Until(expires).Seconds()),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   requestIsTLS(r),
+		Secure:   true,
 	})
 }
 
@@ -120,7 +121,7 @@ func ClearSessionCookie(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   requestIsTLS(r),
+		Secure:   true,
 	})
 }
 
@@ -132,14 +133,4 @@ func SessionFromRequest(r *http.Request, secret string) string {
 		return ""
 	}
 	return VerifySession(secret, c.Value)
-}
-
-func requestIsTLS(r *http.Request) bool {
-	if r.TLS != nil {
-		return true
-	}
-	if p := r.Header.Get("X-Forwarded-Proto"); strings.EqualFold(p, "https") {
-		return true
-	}
-	return false
 }

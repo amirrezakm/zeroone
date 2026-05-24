@@ -202,7 +202,7 @@ func readMeta(dir string) (Info, error) {
 	return Info{Title: meta.Title, Source: meta.Source, Action: meta.Action}, nil
 }
 
-func copyFile(src, dst string, mode os.FileMode) error {
+func copyFile(src, dst string, mode os.FileMode) (err error) {
 	in, err := os.Open(src)
 	if err != nil {
 		return err
@@ -212,8 +212,16 @@ func copyFile(src, dst string, mode os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
-	if _, err := io.Copy(out, in); err != nil {
+	// The destination is writable, so a Close error can mean buffered data
+	// never reached disk — surface it instead of dropping it. The named
+	// return lets the deferred Close report a flush failure when the copy
+	// itself succeeded.
+	defer func() {
+		if cerr := out.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+	if _, err = io.Copy(out, in); err != nil {
 		return err
 	}
 	return nil
