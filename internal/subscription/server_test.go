@@ -22,7 +22,7 @@ func TestSafeAttachmentName(t *testing.T) {
 		{"semicolon params", "a;filename=evil@x.com", "a_filename_evil_x.com"},
 		{"slashes", "../../etc/passwd", "etc_passwd"},
 		{"backslash", `a\b@x.com`, "a_b_x.com"},
-		{"unicode only", "تست‌کاربر", "subscription"},
+		{"unicode only", "تست\u200cکاربر", "subscription"},
 		{"empty", "", "subscription"},
 		{"only specials", "@@@", "subscription"},
 		{"leading trailing punct", "._-bob-_.", "bob"},
