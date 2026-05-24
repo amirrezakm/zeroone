@@ -32,14 +32,18 @@ ENV ORIGIN_HOST=203.0.113.1 \
     XHTTP_PATH=/api/v1/events \
     LOG_LEVEL=info \
     LANDING_BODY="OK" \
-    PORT=80
+    PORT=8080
 # Don't pin GOMAXPROCS. Go ≥1.25 auto-detects the cgroup CPU limit (runflare
 # gives us 0.75 cores → Go uses 1 P with extra threads available for I/O).
 # Pinning to 1 serializes all parallel xhttp substreams and kills throughput
 # under multi-stream xmux load.
 
-# Runflare's Docker item exposes container port 80 by default. The binary
-# reads PORT and listens on :$PORT. scratch has no /etc/passwd, so the
-# process runs as UID 0 implicitly — no USER directive needed.
-EXPOSE 80
+# The binary reads PORT and listens on :$PORT. Run as a non-root numeric UID
+# (scratch has no /etc/passwd) so the image carries no root baseline (Trivy
+# DS-0002). A non-root process can't bind ports below 1024, hence the 8080
+# default — point Runflare's Docker item at container port 8080. If a project
+# is hard-pinned to container port 80, grant NET_BIND_SERVICE and override
+# PORT=80 at deploy time rather than reverting this image to root.
+EXPOSE 8080
+USER 65532:65532
 ENTRYPOINT ["/edge-relay"]

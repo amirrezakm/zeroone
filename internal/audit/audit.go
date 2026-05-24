@@ -47,9 +47,13 @@ func (l *Log) Write(actor, action, target string, data map[string]any) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	_, err = f.Write(append(b, '\n'))
-	return err
+	// This is a writable file: report a Close failure (e.g. a deferred
+	// flush error) so a truncated audit record never looks like a success.
+	if _, err := f.Write(append(b, '\n')); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 // Tail returns up to limit most-recent entries, newest first.

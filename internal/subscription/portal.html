@@ -227,7 +227,8 @@
   <footer>If your subscription link is exposed and needs rotating, contact your admin.</footer>
 </div>
 
-<script>{{.QRCodeJS}}</script>
+<!-- qrcode-lib (injected at startup) -->
+<script type="application/json" id="portal-data">{{.AllJSON}}</script>
 <script>
 const FMT = (b) => {
   if (!b) return "0 B";
@@ -235,7 +236,7 @@ const FMT = (b) => {
   while (n >= 1024 && i < u.length-1) { n /= 1024; i++; }
   return n.toFixed(n < 10 && i > 0 ? 2 : (n < 100 ? 1 : 0)) + " " + u[i];
 };
-const D = {{.AllJSON}};
+const D = JSON.parse(document.getElementById("portal-data").textContent);
 document.getElementById("dl").textContent = FMT(D.Download);
 document.getElementById("ul").textContent = FMT(D.Upload);
 document.getElementById("used").textContent = FMT(D.Used);

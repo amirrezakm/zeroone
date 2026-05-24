@@ -9,7 +9,7 @@
 # Multi-arch: amd64 and arm64. The xray-core download URL switches on
 # TARGETARCH (set automatically by `docker buildx`).
 
-ARG XRAY_VERSION=v25.1.30
+ARG XRAY_VERSION=v26.3.27
 
 # ---------- 1. UI build ----------
 # Arch-independent JS — always build natively to avoid QEMU emulation
@@ -80,7 +80,10 @@ RUN apk add --no-cache \
         ca-certificates \
         tzdata \
         curl \
-        tini
+        tini \
+        libcap \
+    && addgroup -S -g 65532 zeroone \
+    && adduser -S -D -H -u 65532 -G zeroone zeroone
 
 COPY --from=daemon /out/zeroone          /usr/local/bin/zeroone
 COPY --from=xray   /opt/xray/xray        /usr/local/bin/xray
@@ -88,6 +91,22 @@ COPY --from=xray   /opt/xray/geoip.dat   /usr/local/share/xray/geoip.dat
 COPY --from=xray   /opt/xray/geosite.dat /usr/local/share/xray/geosite.dat
 COPY --from=ui     /src/web/app/dist     /app/ui
 COPY config/stack.example.json           /app/stack.example.json
+
+# Run unprivileged (see USER below). Two things the non-root user still needs:
+#   1. Xray binds inbound ports — often privileged ones like 443 under the
+#      host-network compose. Grant the bundled binary the NET_BIND_SERVICE
+#      file capability; it is part of Docker's default capability set, so no
+#      --privileged or extra `docker run` flag is required for the common case.
+#   2. The state dir and /app must be writable by uid 65532.
+# Caveats for operators: an xray binary later installed via the panel (override
+# tree under /var/lib/zeroone/xray) will NOT carry this file cap, and a *bind-
+# mounted* state dir must be chowned to 65532 on the host (named/anonymous
+# volumes inherit the ownership set here). Host-level features
+# (-manage-failover/-manage-vpn/bandwidth shaping) need their own
+# capabilities/devices granted at runtime.
+RUN setcap cap_net_bind_service=+ep /usr/local/bin/xray \
+    && mkdir -p /var/lib/zeroone /app \
+    && chown -R zeroone:zeroone /var/lib/zeroone /app
 
 # Xray looks for geo files in the same dir as its binary by default; the
 # /usr/local/share/xray location is exposed via XRAY_LOCATION_ASSET so
@@ -112,5 +131,9 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=15s \
     CMD curl -fsS "http://127.0.0.1:${ZEROONE_ADMIN_LISTEN_PORT:-8000}/api/health" || exit 1
 
 EXPOSE 8000
+# Drop to the unprivileged user for the running process. This removes the
+# default root baseline (Trivy DS-0002); see the setcap/chown note above for
+# the port-binding and writable-state-dir requirements this implies.
+USER zeroone:zeroone
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/zeroone"]
 CMD ["-config", "/var/lib/zeroone/stack.json", "-allow-apply", "-manage-xray"]
