@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.2 — 2026-05-24
+
+### Bug Fixes
+
+- address code scanning security alerts (f237dde)
+
 ## v0.3.1 — 2026-05-23
 
 ### Bug Fixes
