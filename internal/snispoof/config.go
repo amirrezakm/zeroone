@@ -65,14 +65,31 @@ func Tun2socksArgs(c stack.SNISpoofConfig, logLevel string) []string {
 	if host == "0.0.0.0" || host == "" {
 		host = "127.0.0.1"
 	}
-	if logLevel == "" {
-		logLevel = "warning"
-	}
 	return []string{
 		"-device", "tun://" + c.EffectiveTunName(),
 		"-proxy", fmt.Sprintf("socks5://%s:%d", host, port),
-		"-loglevel", logLevel,
+		"-loglevel", tun2socksLogLevel(logLevel),
 		"-mtu", strconv.Itoa(c.EffectiveMTU()),
+	}
+}
+
+// tun2socksLogLevel maps a caller level (often xray's, e.g. "warning") to one
+// tun2socks accepts: silent, error, warn, info, debug. tun2socks rejects
+// "warning" outright, so we normalise rather than pass through.
+func tun2socksLogLevel(s string) string {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "debug":
+		return "debug"
+	case "info":
+		return "info"
+	case "warn", "warning":
+		return "warn"
+	case "error":
+		return "error"
+	case "none", "silent":
+		return "silent"
+	default:
+		return "info"
 	}
 }
 

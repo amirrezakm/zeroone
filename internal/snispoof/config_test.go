@@ -106,6 +106,30 @@ func TestTun2socksArgs(t *testing.T) {
 	}
 }
 
+func TestTun2socksLogLevelMapping(t *testing.T) {
+	// tun2socks rejects xray's "warning"; it must be mapped to "warn".
+	cases := map[string]string{
+		"warning": "warn",
+		"warn":    "warn",
+		"info":    "info",
+		"debug":   "debug",
+		"error":   "error",
+		"none":    "silent",
+		"":        "info",
+		"bogus":   "info",
+	}
+	for in, want := range cases {
+		got := tun2socksLogLevel(in)
+		if got != want {
+			t.Fatalf("tun2socksLogLevel(%q)=%q, want %q", in, got, want)
+		}
+		args := Tun2socksArgs(stack.SNISpoofConfig{Enabled: true}, in)
+		if !strings.Contains(argsString(args), "-loglevel "+want) {
+			t.Fatalf("args for level %q missing -loglevel %q: %v", in, want, args)
+		}
+	}
+}
+
 func TestParseHostPort(t *testing.T) {
 	h, p, err := parseHostPort("www.google.com:443")
 	if err != nil || h != "www.google.com" || p != 443 {
