@@ -25,6 +25,7 @@ import (
 	"github.com/amirrezakm/zeroone/internal/presence"
 	"github.com/amirrezakm/zeroone/internal/relay"
 	"github.com/amirrezakm/zeroone/internal/snapshots"
+	"github.com/amirrezakm/zeroone/internal/snispoof"
 	"github.com/amirrezakm/zeroone/internal/stack"
 	"github.com/amirrezakm/zeroone/internal/system"
 	"github.com/amirrezakm/zeroone/internal/tunnel"
@@ -48,6 +49,7 @@ func main() {
 	manageFailover := flag.Bool("manage-failover", false, "run the automatic Xray tunnel failover loop")
 	manageVPN := flag.Bool("manage-vpn", false, "restart tunnel services when their unit or interface goes down")
 	manageRelay := flag.Bool("manage-relay", false, "supervise the mhrv-rs relay plugin (auto-start, restart, probe)")
+	manageSNISpoof := flag.Bool("manage-snispoof", false, "supervise the SNI-spoof plugin (byedpi + tun2socks + policy route; needs CAP_NET_ADMIN)")
 	manageXray := flag.Bool("manage-xray", false, "run xray as a child process and restart it on apply (container mode; replaces systemctl)")
 	flag.Parse()
 
@@ -181,6 +183,26 @@ func main() {
 		relaySupervisor = relay.NewSupervisor(*configPath, relayLoader, relayStore, broker)
 	}
 
+	snispoofStore := snispoof.NewStore()
+	snispoofLoader := func() (stack.SNISpoofConfig, error) {
+		c, err := stack.Load(*configPath)
+		if err != nil {
+			return stack.SNISpoofConfig{}, err
+		}
+		return c.SNISpoof, nil
+	}
+	var snispoofSupervisor *snispoof.Supervisor
+	if *manageSNISpoof {
+		snispoofSupervisor = snispoof.NewSupervisor(*configPath, snispoofLoader, snispoofStore, broker)
+		snispoofSupervisor.LogLevel = func() string {
+			c, err := stack.Load(*configPath)
+			if err != nil {
+				return ""
+			}
+			return c.Xray.LogLevel
+		}
+	}
+
 	// xrayinstall manages panel-driven xray updates. Constructed even
 	// when -manage-xray is off: the override-vs-image resolver is
 	// useful for host installs too, and the API endpoints stay
@@ -220,15 +242,17 @@ func main() {
 	xrayinternal.SetBinaryResolver(func(_ stack.Config) string { return xrayInstaller.ActiveBinary() })
 
 	h := api.NewServerWithOptions(*cfg, *configPath, *allowApply, api.Options{
-		Metrics:         store,
-		Events:          broker,
-		Audit:           auditLog,
-		Snapshots:       snapStore,
-		Presence:        presenceTracker,
-		Destinations:    destAgg,
-		RelayStore:      relayStore,
-		RelaySupervisor: relaySupervisor,
-		XrayInstaller:   xrayInstaller,
+		Metrics:            store,
+		Events:             broker,
+		Audit:              auditLog,
+		Snapshots:          snapStore,
+		Presence:           presenceTracker,
+		Destinations:       destAgg,
+		RelayStore:         relayStore,
+		RelaySupervisor:    relaySupervisor,
+		SNISpoofStore:      snispoofStore,
+		SNISpoofSupervisor: snispoofSupervisor,
+		XrayInstaller:      xrayInstaller,
 	})
 	srv := &http.Server{
 		Addr:              cfg.Server.AdminListen,
@@ -286,6 +310,10 @@ func main() {
 	if relaySupervisor != nil {
 		slog.Info("starting relay supervisor")
 		go relaySupervisor.Run(ctx)
+	}
+	if snispoofSupervisor != nil {
+		slog.Info("starting sni-spoof supervisor")
+		go snispoofSupervisor.Run(ctx)
 	}
 	if *allowApply {
 		slog.Info("starting session-limit enforcer")

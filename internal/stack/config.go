@@ -17,6 +17,7 @@ type Config struct {
 	Failover   FailoverConfig   `json:"failover"`
 	Panel      PanelConfig      `json:"panel,omitempty"`
 	Relay      RelayConfig      `json:"relay,omitempty"`
+	SNISpoof   SNISpoofConfig   `json:"sni_spoof,omitempty"`
 	XrayUpdate XrayUpdateConfig `json:"xray_update,omitempty"`
 }
 
@@ -117,6 +118,161 @@ func (r RelayConfig) EnabledSites() []RelaySite {
 // through the relay (one entry per enabled site).
 func (r RelayConfig) EnabledDomains() []string {
 	sites := r.EnabledSites()
+	out := make([]string, 0, len(sites))
+	for _, s := range sites {
+		out = append(out, s.Domain)
+	}
+	return out
+}
+
+// SNISpoofConfig wires the SNI-spoofing / DPI-desync plugin into the stack.
+// The plugin supervises two child processes — byedpi (a local SOCKS5 proxy
+// that applies the desync, e.g. a fake ClientHello carrying FakeDomain as a
+// decoy SNI) and tun2socks (which exposes a real tun device backed by that
+// SOCKS5 proxy). xray rides "on top": its sni-spoof outbound is a freedom
+// outbound that stamps FirewallMark on its sockets, and a policy route
+// (fwmark FirewallMark -> RouteTable -> default dev TunName) steers only
+// that marked traffic into the tun. byedpi's own egress is unmarked, so it
+// follows normal routing and never loops back through the tun.
+//
+// All host mutations (tun, ip rule, route table) only happen when Enabled
+// and the daemon runs with -manage-snispoof; teardown is on stop.
+type SNISpoofConfig struct {
+	Enabled     bool        `json:"enabled"`
+	FakeDomain  string      `json:"fake_domain,omitempty"`  // decoy SNI shown to the DPI
+	Method      string      `json:"method,omitempty"`       // desync preset: fake|split|disorder|auto
+	FakeTTL     int         `json:"fake_ttl,omitempty"`     // TTL for fake packets (fake method)
+	Listen      string      `json:"listen,omitempty"`       // byedpi SOCKS5 listen host:port
+	Strategy    string      `json:"strategy,omitempty"`     // raw byedpi desync flag override
+	ExtraArgs   []string    `json:"extra_args,omitempty"`   // raw byedpi args appended verbatim
+	OutboundTag string      `json:"outbound_tag,omitempty"` // xray outbound tag
+	Sites       []RelaySite `json:"sites,omitempty"`        // domains routed through the spoof tun
+	InboundTags []string    `json:"inbound_tags,omitempty"` // whole xray inbounds routed through it
+
+	// tun device + policy routing
+	TunName      string `json:"tun_name,omitempty"`      // tun interface name
+	TunAddr      string `json:"tun_addr,omitempty"`      // tun CIDR, e.g. 10.99.0.1/24
+	FirewallMark int    `json:"firewall_mark,omitempty"` // SO_MARK xray stamps; ip rule matches
+	RouteTable   int    `json:"route_table,omitempty"`   // policy routing table id
+	MTU          int    `json:"mtu,omitempty"`
+
+	// binaries + paths
+	Binary          string `json:"binary,omitempty"`           // byedpi binary
+	Tun2socksBinary string `json:"tun2socks_binary,omitempty"` // tun2socks binary
+	ConfigDir       string `json:"config_dir,omitempty"`       // generated payloads/state live here
+	StatePath       string `json:"state_path,omitempty"`
+	LogPath         string `json:"log_path,omitempty"`
+	HealthProbe     string `json:"health_probe,omitempty"` // host:port tested through the proxy
+	Notes           string `json:"notes,omitempty"`
+}
+
+const (
+	DefaultSNISpoofListen       = "127.0.0.1:8087"
+	DefaultSNISpoofOutboundTag  = "sni-spoof"
+	DefaultSNISpoofBinary       = "/usr/local/bin/byedpi"
+	DefaultSNISpoofTun2socks    = "/usr/local/bin/tun2socks"
+	DefaultSNISpoofTunName      = "znspoof0"
+	DefaultSNISpoofTunAddr      = "10.99.0.1/24"
+	DefaultSNISpoofFirewallMark = 0x1be1 // 7137; arbitrary, configurable
+	DefaultSNISpoofRouteTable   = 7137
+	DefaultSNISpoofMTU          = 1420
+	DefaultSNISpoofConfigDir    = "/var/lib/zeroone/snispoof"
+	DefaultSNISpoofStatePath    = "/var/lib/zeroone/snispoof/state.json"
+	DefaultSNISpoofLogPath      = "/var/lib/zeroone/snispoof/snispoof.log"
+	DefaultSNISpoofHealthProbe  = "www.google.com:443"
+	DefaultSNISpoofMethod       = "fake"
+	DefaultSNISpoofFakeDomain   = "www.cloudflare.com"
+	DefaultSNISpoofFakeTTL      = 8
+)
+
+// SNISpoofMethods enumerates the desync presets the plugin knows how to
+// translate into byedpi flags. "auto" lets byedpi try its built-in combo.
+var SNISpoofMethods = []string{"fake", "split", "disorder", "auto"}
+
+func (c SNISpoofConfig) EffectiveListen() string {
+	if c.Listen == "" {
+		return DefaultSNISpoofListen
+	}
+	return c.Listen
+}
+
+func (c SNISpoofConfig) EffectiveOutboundTag() string {
+	if c.OutboundTag == "" {
+		return DefaultSNISpoofOutboundTag
+	}
+	return c.OutboundTag
+}
+
+func (c SNISpoofConfig) EffectiveMethod() string {
+	if c.Method == "" {
+		return DefaultSNISpoofMethod
+	}
+	return c.Method
+}
+
+func (c SNISpoofConfig) EffectiveFakeDomain() string {
+	if c.FakeDomain == "" {
+		return DefaultSNISpoofFakeDomain
+	}
+	return c.FakeDomain
+}
+
+func (c SNISpoofConfig) EffectiveFakeTTL() int {
+	if c.FakeTTL <= 0 {
+		return DefaultSNISpoofFakeTTL
+	}
+	return c.FakeTTL
+}
+
+func (c SNISpoofConfig) EffectiveTunName() string {
+	if c.TunName == "" {
+		return DefaultSNISpoofTunName
+	}
+	return c.TunName
+}
+
+func (c SNISpoofConfig) EffectiveTunAddr() string {
+	if c.TunAddr == "" {
+		return DefaultSNISpoofTunAddr
+	}
+	return c.TunAddr
+}
+
+func (c SNISpoofConfig) EffectiveMark() int {
+	if c.FirewallMark <= 0 {
+		return DefaultSNISpoofFirewallMark
+	}
+	return c.FirewallMark
+}
+
+func (c SNISpoofConfig) EffectiveTable() int {
+	if c.RouteTable <= 0 {
+		return DefaultSNISpoofRouteTable
+	}
+	return c.RouteTable
+}
+
+func (c SNISpoofConfig) EffectiveMTU() int {
+	if c.MTU <= 0 {
+		return DefaultSNISpoofMTU
+	}
+	return c.MTU
+}
+
+// EnabledSites returns sites that should be routed through the spoof tun.
+func (c SNISpoofConfig) EnabledSites() []RelaySite {
+	out := make([]RelaySite, 0, len(c.Sites))
+	for _, s := range c.Sites {
+		if s.Enabled && s.Domain != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// EnabledDomains returns the domain strings for the enabled sites.
+func (c SNISpoofConfig) EnabledDomains() []string {
+	sites := c.EnabledSites()
 	out := make([]string, 0, len(sites))
 	for _, s := range sites {
 		out = append(out, s.Domain)
@@ -643,6 +799,53 @@ func (c Config) Validate() error {
 			}
 			if seenDomain[s.Domain] {
 				return fmt.Errorf("duplicate relay site %q", s.Domain)
+			}
+			seenDomain[s.Domain] = true
+		}
+	}
+	if c.SNISpoof.Enabled {
+		listen := c.SNISpoof.EffectiveListen()
+		host, port, err := splitHostPort(listen)
+		if err != nil {
+			return fmt.Errorf("sni_spoof.listen: %w", err)
+		}
+		if host == "" {
+			return fmt.Errorf("sni_spoof.listen must include a host")
+		}
+		if port == 0 {
+			return fmt.Errorf("sni_spoof.listen must include a port")
+		}
+		tag := c.SNISpoof.EffectiveOutboundTag()
+		if tag == c.Xray.Outbounds.Proxy.Tag || tag == c.Xray.Outbounds.Fallback.Tag ||
+			tag == c.Relay.EffectiveOutboundTag() || tag == "direct" || tag == "block" || tag == "api" {
+			return fmt.Errorf("sni_spoof.outbound_tag %q conflicts with another outbound", tag)
+		}
+		found := false
+		for _, m := range SNISpoofMethods {
+			if c.SNISpoof.EffectiveMethod() == m {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("sni_spoof.method must be one of %v", SNISpoofMethods)
+		}
+		if _, _, err := net.ParseCIDR(c.SNISpoof.EffectiveTunAddr()); err != nil {
+			return fmt.Errorf("sni_spoof.tun_addr must be CIDR (e.g. 10.99.0.1/24): %w", err)
+		}
+		if c.SNISpoof.FirewallMark < 0 || c.SNISpoof.RouteTable < 0 || c.SNISpoof.MTU < 0 || c.SNISpoof.FakeTTL < 0 {
+			return fmt.Errorf("sni_spoof firewall_mark, route_table, mtu, fake_ttl must be >= 0")
+		}
+		if err := addPort(port, "sni-spoof"); err != nil {
+			return err
+		}
+		seenDomain := map[string]bool{}
+		for _, s := range c.SNISpoof.Sites {
+			if s.Domain == "" {
+				return fmt.Errorf("sni_spoof site has empty domain")
+			}
+			if seenDomain[s.Domain] {
+				return fmt.Errorf("duplicate sni_spoof site %q", s.Domain)
 			}
 			seenDomain[s.Domain] = true
 		}
