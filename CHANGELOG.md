@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.1 — 2026-05-25
+
+### Bug Fixes
+
+- map log level to tun2socks-accepted value (25c0bfe)
+
 ## v0.4.0 — 2026-05-25
 
 ### Features
