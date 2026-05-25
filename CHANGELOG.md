@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.0 — 2026-05-25
+
+### Features
+
+- add SNI-spoof / DPI-desync plugin with tun + xray on top (fd3b61d)
+
 ## [Unreleased]
 
 ### Features
