@@ -150,5 +150,8 @@ func parseHostPort(target string) (string, int, error) {
 	if err != nil {
 		return "", 0, fmt.Errorf("invalid port %q", p)
 	}
+	if n < 1 || n > 65535 {
+		return "", 0, fmt.Errorf("invalid port %q", p)
+	}
 	return h, n, nil
 }
