@@ -15,7 +15,7 @@ ARG XRAY_VERSION=v26.3.27
 # Arch-independent JS — always build natively to avoid QEMU emulation
 # (npm install + vite build under arm64 QEMU on an amd64 runner takes
 # tens of minutes and routinely makes the release job look hung).
-FROM --platform=$BUILDPLATFORM node:20-alpine AS ui
+FROM --platform=$BUILDPLATFORM node:26-alpine AS ui
 WORKDIR /src/web/app
 COPY web/app/package.json web/app/package-lock.json* ./
 RUN if [ -f package-lock.json ]; then \
