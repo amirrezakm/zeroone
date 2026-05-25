@@ -40,6 +40,9 @@ func Generate(cfg stack.Config) Object {
 	if rly := relayOutbound(cfg.Relay); rly != nil {
 		outbounds = append(outbounds, rly)
 	}
+	if sp := snispoofOutbound(cfg.SNISpoof); sp != nil {
+		outbounds = append(outbounds, sp)
+	}
 	return Object{
 		"log":   Object{"loglevel": cfg.Xray.LogLevel},
 		"dns":   Object{"hosts": cfg.Xray.DNSHosts, "queryStrategy": "UseIPv4", "servers": cfg.Xray.DNSServers},
@@ -221,6 +224,30 @@ func relayOutbound(r stack.RelayConfig) Object {
 	}
 }
 
+// snispoofOutbound emits a freedom outbound that stamps the plugin's
+// FirewallMark (SO_MARK) on its sockets. A policy route programmed by the
+// snispoof supervisor (fwmark -> table -> default dev <tun>) steers only this
+// marked traffic into the tun, where tun2socks + byedpi apply the desync.
+// The real SNI is preserved end-to-end; byedpi only shows the DPI a decoy.
+// Returns nil to omit the outbound when nothing routes to it.
+func snispoofOutbound(c stack.SNISpoofConfig) Object {
+	if !c.Enabled {
+		return nil
+	}
+	if len(c.EnabledSites()) == 0 && len(c.InboundTags) == 0 {
+		return nil
+	}
+	return Object{
+		"tag":      c.EffectiveOutboundTag(),
+		"protocol": "freedom",
+		"settings": Object{"domainStrategy": "UseIPv4"},
+		"streamSettings": Object{"sockopt": Object{
+			"mark":        c.EffectiveMark(),
+			"tcpFastOpen": true,
+		}},
+	}
+}
+
 func parseRelayListen(addr string) (string, int, bool) {
 	h, p, err := net.SplitHostPort(addr)
 	if err != nil {
@@ -279,6 +306,23 @@ func routingRules(cfg stack.Config) []Object {
 			})
 		}
 		if domains := cfg.Relay.EnabledDomains(); len(domains) > 0 {
+			r = append(r, Object{
+				"type":        "field",
+				"domain":      domains,
+				"outboundTag": tag,
+			})
+		}
+	}
+	if cfg.SNISpoof.Enabled {
+		tag := cfg.SNISpoof.EffectiveOutboundTag()
+		if len(cfg.SNISpoof.InboundTags) > 0 {
+			r = append(r, Object{
+				"type":        "field",
+				"inboundTag":  append([]string(nil), cfg.SNISpoof.InboundTags...),
+				"outboundTag": tag,
+			})
+		}
+		if domains := cfg.SNISpoof.EnabledDomains(); len(domains) > 0 {
 			r = append(r, Object{
 				"type":        "field",
 				"domain":      domains,

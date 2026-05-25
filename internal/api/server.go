@@ -28,6 +28,7 @@ import (
 	"github.com/amirrezakm/zeroone/internal/relay"
 	"github.com/amirrezakm/zeroone/internal/sessions"
 	"github.com/amirrezakm/zeroone/internal/snapshots"
+	"github.com/amirrezakm/zeroone/internal/snispoof"
 	"github.com/amirrezakm/zeroone/internal/stack"
 	"github.com/amirrezakm/zeroone/internal/subscription"
 	"github.com/amirrezakm/zeroone/internal/tunnel"
@@ -37,30 +38,34 @@ import (
 )
 
 type Options struct {
-	Metrics         *metrics.Store
-	Events          *events.Broker
-	Audit           *audit.Log
-	Snapshots       *snapshots.Store
-	Presence        *presence.Tracker
-	Destinations    *analytics.Aggregator
-	RelayStore      *relay.Store
-	RelaySupervisor *relay.Supervisor
-	XrayInstaller   *xrayinstall.Installer
+	Metrics            *metrics.Store
+	Events             *events.Broker
+	Audit              *audit.Log
+	Snapshots          *snapshots.Store
+	Presence           *presence.Tracker
+	Destinations       *analytics.Aggregator
+	RelayStore         *relay.Store
+	RelaySupervisor    *relay.Supervisor
+	SNISpoofStore      *snispoof.Store
+	SNISpoofSupervisor *snispoof.Supervisor
+	XrayInstaller      *xrayinstall.Installer
 }
 
 type Server struct {
-	cfg             stack.Config
-	configPath      string
-	allowApply      bool
-	metrics         *metrics.Store
-	events          *events.Broker
-	audit           *audit.Log
-	snapshots       *snapshots.Store
-	presence        *presence.Tracker
-	destinations    *analytics.Aggregator
-	relayStore      *relay.Store
-	relaySupervisor *relay.Supervisor
-	xrayInstaller   *xrayinstall.Installer
+	cfg                stack.Config
+	configPath         string
+	allowApply         bool
+	metrics            *metrics.Store
+	events             *events.Broker
+	audit              *audit.Log
+	snapshots          *snapshots.Store
+	presence           *presence.Tracker
+	destinations       *analytics.Aggregator
+	relayStore         *relay.Store
+	relaySupervisor    *relay.Supervisor
+	snispoofStore      *snispoof.Store
+	snispoofSupervisor *snispoof.Supervisor
+	xrayInstaller      *xrayinstall.Installer
 }
 
 func NewServer(cfg stack.Config, configPath string, allowApply bool) http.Handler {
@@ -72,6 +77,7 @@ func NewServerWithOptions(cfg stack.Config, configPath string, allowApply bool, 
 		metrics: opts.Metrics, events: opts.Events, audit: opts.Audit, snapshots: opts.Snapshots,
 		presence: opts.Presence, destinations: opts.Destinations,
 		relayStore: opts.RelayStore, relaySupervisor: opts.RelaySupervisor,
+		snispoofStore: opts.SNISpoofStore, snispoofSupervisor: opts.SNISpoofSupervisor,
 		xrayInstaller: opts.XrayInstaller}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.health)
@@ -146,6 +152,15 @@ func NewServerWithOptions(cfg stack.Config, configPath string, allowApply bool, 
 	mux.HandleFunc("POST /api/relay/test", s.relayTest)
 	mux.HandleFunc("POST /api/relay/restart", s.relayRestart)
 	mux.HandleFunc("GET /api/relay/logs", s.relayLogs)
+	mux.HandleFunc("GET /api/snispoof/config", s.snispoofConfigGet)
+	mux.HandleFunc("PUT /api/snispoof/config", s.snispoofConfigPut)
+	mux.HandleFunc("POST /api/snispoof/sites", s.snispoofSitesPost)
+	mux.HandleFunc("PUT /api/snispoof/sites", s.snispoofSitesPut)
+	mux.HandleFunc("DELETE /api/snispoof/sites", s.snispoofSitesDelete)
+	mux.HandleFunc("GET /api/snispoof/status", s.snispoofStatus)
+	mux.HandleFunc("POST /api/snispoof/test", s.snispoofTest)
+	mux.HandleFunc("POST /api/snispoof/restart", s.snispoofRestart)
+	mux.HandleFunc("GET /api/snispoof/logs", s.snispoofLogs)
 	mux.HandleFunc("POST /api/login", s.login)
 	mux.HandleFunc("POST /api/logout", s.logout)
 	mux.HandleFunc("GET /api/me", s.me)

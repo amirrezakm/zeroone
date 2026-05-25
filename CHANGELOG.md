@@ -1,6 +1,16 @@
 # Changelog
 
-## v0.3.2 — 2026-05-24
+## [Unreleased]
+
+### Features
+
+- **SNI-spoof plugin** (`internal/snispoof`, `-manage-snispoof`): supervises
+  byedpi (a local SOCKS5 DPI-desync proxy) + tun2socks (a real tun device)
+  and programs a scoped fwmark policy route so xray rides on top. Configurable
+  decoy SNI, desync method (fake/split/disorder/auto), and per-domain routing
+  via `sni_spoof` in `stack.json` and the `/api/snispoof/*` endpoints. The real
+  SNI is preserved end-to-end; only a decoy is shown to the DPI. See
+  `docs/sni-spoof.md`.
 
 ### Bug Fixes
 

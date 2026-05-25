@@ -190,5 +190,28 @@
     "confirmations": 4,
     "cooldown_seconds": 300,
     "fallback_outbound_tag": "priority-proxy"
+  },
+  "sni_spoof": {
+    "enabled": false,
+    "fake_domain": "www.cloudflare.com",
+    "method": "fake",
+    "fake_ttl": 8,
+    "listen": "127.0.0.1:8087",
+    "outbound_tag": "sni-spoof",
+    "tun_name": "znspoof0",
+    "tun_addr": "10.99.0.1/24",
+    "firewall_mark": 7137,
+    "route_table": 7137,
+    "mtu": 1420,
+    "binary": "/usr/local/bin/byedpi",
+    "tun2socks_binary": "/usr/local/bin/tun2socks",
+    "health_probe": "www.google.com:443",
+    "sites": [
+      {
+        "domain": "domain:youtube.com",
+        "enabled": true,
+        "note": "route through the desync tun"
+      }
+    ]
   }
 }
